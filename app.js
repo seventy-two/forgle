@@ -7,7 +7,7 @@ import {
 import { glowCSS, glowStrength, colourName } from "./glow.js";
 import { hilt } from "./hilts.js";
 import {
-  GRIND_TIME, COLUMNS, BELT, EDGE, EDGE_OK, FLIP_TIME, beltAt, geometry, newGrind, edgeLeft, grind, flip, grindScore,
+  GRIND_TIME, COLUMNS, BELT, EDGE, EDGE_OK, FLIP_TIME, beltAt, heightAt, geometry, newGrind, edgeLeft, grind, flip, grindScore,
 } from "./grind.js";
 import {
   HARDEN_TIME, TRANSFER, CRACK, KEY_STEER, DRAG_STEER, QUENCHES, htTemp, htSetFire, magnetSticks, quenchTemp,
@@ -542,7 +542,7 @@ const gscene = { sy: 1, ref: 0 };
 function startGrind() {
   state.phase = "grind";
   state.g = newGrind();
-  state.press = { down: false, y: null, at: 0 };
+  state.press = { down: false, y: null, vy: 0, at: 0 };
   state.t0 = performance.now();
   const { widths, lengths } = state.forged;
   gscene.ref = C.billet;
@@ -675,6 +675,7 @@ function holdAt(e, down) {
   const t = stageTime(e.timeStamp);
   flushGrind(t);
   if (!e.keyboard) state.press.y = bladeY(e);
+  else if (state.press.y === null) state.press.y = startHeight();
   state.press.down = down;
   $("gscene").classList.toggle("pressing", down);
   sound.hiss(down);
@@ -684,9 +685,40 @@ function flushGrind(t) {
   const p = state.press;
   const until = Math.min(t, GRIND_TIME);
   if (until > p.at) {
-    state.g = grind(state.g, state.cols, p.at, until, p.down ? p.y : null);
+    const [lo, hi] = heightBounds();
+    state.g = grind(state.g, state.cols, p.at, until, p.down ? p.y : null, p.vy, lo, hi);
+    if (p.y !== null) p.y = heightAt(p.y, p.vy, p.at, until, lo, hi);
     p.at = until;
   }
+}
+
+// The arrow keys move the hold up and down at KEY_HEIGHT spans a second.
+const KEY_HEIGHT = 0.35;
+
+// heightBounds is how far the hold can go: from the spine (or the far edge)
+// to just below the edge.
+function heightBounds() {
+  const cols = state.cols;
+  const top = Math.min(...cols.map((c) => c.edge - (BLADE.edges === 2 ? 2 : 1) * c.span));
+  const bottom = Math.max(...cols.map((c) => c.edge));
+  return [top, bottom + 2];
+}
+
+// startHeight is where the keyboard's hold starts: on the line at the
+// middle of the blade.
+function startHeight() {
+  const c = state.cols[Math.floor(COLUMNS / 2)];
+  return c.edge - C.bevel * c.span;
+}
+
+// steerHold starts or stops the hold moving (dir -1 up, 1 down, 0 still).
+function steerHold(stamp, dir) {
+  if (state.phase !== "grind") return;
+  flushGrind(stageTime(stamp));
+  const p = state.press;
+  if (p.y === null) p.y = startHeight();
+  const span = Math.max(...state.cols.map((c) => c.span));
+  p.vy = dir * KEY_HEIGHT * span;
 }
 
 function doFlip(stamp) {
@@ -1288,6 +1320,7 @@ function setup() {
   gs.addEventListener("pointercancel", (e) => holdAt(e, false));
   addEventListener("keyup", (e) => {
     if (state.phase === "grind" && e.key === " ") holdAt({ timeStamp: e.timeStamp, keyboard: true }, false);
+    if (state.phase === "grind" && ["arrowup", "arrowdown", "w", "s"].includes(e.key.toLowerCase())) steerHold(e.timeStamp, 0);
     if (state.phase === "temper" && e.key === " ") torchAt({ timeStamp: e.timeStamp, keyboard: true }, false);
     if (state.phase === "plunge" && (e.key === "ArrowLeft" || e.key === "ArrowRight")) {
       state.plunge = steer(state.plunge, C, stageTime(e.timeStamp), null, 0);
@@ -1320,6 +1353,8 @@ function setup() {
       const k = e.key.toLowerCase();
       if (k === " ") holdAt({ timeStamp: e.timeStamp, keyboard: true }, true);
       else if (k === "f") doFlip(e.timeStamp);
+      else if (k === "arrowup" || k === "w") steerHold(e.timeStamp, -1);
+      else if (k === "arrowdown" || k === "s") steerHold(e.timeStamp, 1);
       else return;
       e.preventDefault();
       return;

@@ -188,7 +188,7 @@ kbd {
 .cell {
   border: 1px solid var(--line-strong); border-radius: 2px; background: var(--surface);
   padding: 6px 0 5px; font-size: 0.82rem; font-weight: 500; font-variant-numeric: tabular-nums; color: var(--ink-2);
-  position: relative; overflow: hidden;
+  position: relative; overflow: hidden; text-align: center;
 }
 .cell .bar { position: absolute; left: 0; right: 0; bottom: 0; background: var(--ring); }
 .cell span { position: relative; }

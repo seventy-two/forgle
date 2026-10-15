@@ -70,11 +70,17 @@ export function edgeLeft(g, cols, j) {
   return Math.max(0, cols[j].stock - g.depth[0][j] - g.depth[1][j]);
 }
 
+// heightAt is where the hold is at time s, for a hold at y at time t0
+// moving at vy mm a second (the arrow keys), kept within [lo, hi].
+export function heightAt(y, vy, t0, s, lo = -Infinity, hi = Infinity) {
+  return Math.max(lo, Math.min(hi, y + vy * (s - t0)));
+}
+
 // grind holds the blade to the belt from t0 to t1 with its edge y (mm, in
-// the blade's own coordinates; null for not pressing) and returns the new
-// state. Strips under the belt with y above their edge are ground up to y,
-// and their edge thinned.
-export function grind(g, cols, t0, t1, y) {
+// the blade's own coordinates; null for not pressing), moving at vy mm a
+// second within [lo, hi], and returns the new state. Strips under the belt
+// with the hold above their edge are ground up to it, and their edge thinned.
+export function grind(g, cols, t0, t1, y, vy = 0, lo = -Infinity, hi = Infinity) {
   if (y === null || y === undefined || t1 <= t0) return g;
   const side = g.side;
   const line = [...g.lines[side]];
@@ -83,10 +89,11 @@ export function grind(g, cols, t0, t1, y) {
   const from = Math.max(t0, g.flippedAt + FLIP_TIME);
   for (let k = Math.floor(from / DT) + 1; k * DT <= t1; k++) {
     const u = beltAt(k * DT);
+    const ys = heightAt(y, vy, t0, k * DT, lo, hi);
     for (let j = 0; j < COLUMNS; j++) {
       const c = cols[j];
       if (Math.abs(c.x - u) > BELT / 2) continue;
-      const h = (c.edge - y) / c.span;
+      const h = (c.edge - ys) / c.span;
       if (h <= 0) continue; // held below the edge: not touching
       line[j] = Math.max(line[j], Math.min(1, h));
       depth[j] = Math.min(c.stock - other[j], depth[j] + RATE * DT);

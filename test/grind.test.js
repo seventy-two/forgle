@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   COLUMNS, SWEEP, BELT, OVERRUN, RATE, EDGE, FLIP_TIME, DT,
-  beltAt, geometry, newGrind, edgeLeft, grind, flip, grindScore,
+  beltAt, heightAt, geometry, newGrind, edgeLeft, grind, flip, grindScore,
 } from "../grind.js";
 import { commission, dayKey, STOCK } from "../game.js";
 import { bladeById } from "../blades.js";
@@ -106,4 +106,29 @@ test("a perfect grind scores 100, and mistakes cost", () => {
   assert.ok(ts.edge < 100);
   const lopsided = { ...perfect, depth: [cols.map((col) => col.stock - EDGE), Array(COLUMNS).fill(0)] };
   assert.ok(grindScore(c, lopsided, cols).uneven > 1);
+});
+
+test("a hold moving on the arrow keys is the same however the time is split, and stays in bounds", () => {
+  const y = cols[15].edge - 0.2 * cols[15].span;
+  const lo = y - 6, hi = y + 2;
+  assert.equal(heightAt(y, -2, 0, 100, lo, hi), lo);
+  assert.equal(heightAt(y, 5, 0, 100, lo, hi), hi);
+  const once = grind(newGrind(), cols, 0.02, 3.1, y, -1.5, lo, hi);
+  let many = newGrind();
+  let t = 0.02, at = y;
+  for (const step of [0.4, 0.013, 1.1, 0.25]) {
+    many = grind(many, cols, t, t + step, at, -1.5, lo, hi);
+    at = heightAt(at, -1.5, t, t + step, lo, hi);
+    t += step;
+  }
+  many = grind(many, cols, t, 3.1, at, -1.5, lo, hi);
+  // Equal but for floating-point rounding in the height.
+  for (const k of ["lines", "depth"]) {
+    for (let side = 0; side < 2; side++) {
+      once[k][side].forEach((v, j) => assert.ok(Math.abs(v - many[k][side][j]) < 1e-9, `${k} ${side} ${j}`));
+    }
+  }
+  // Moving up grinds higher than holding still.
+  const still = grind(newGrind(), cols, 0.02, 3.1, y);
+  assert.ok(Math.max(...once.lines[0]) > Math.max(...still.lines[0]));
 });
