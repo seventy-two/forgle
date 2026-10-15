@@ -6,7 +6,9 @@
 // base width for x from 0 (by the guard) to 1 (where the point starts).
 // Single-edged blades keep either their spine or their edge straight while
 // the width changes (align), and some are curved: curve.amount mm at the
-// point, growing as (x/L)^power, negative for up.
+// point, growing as (x/L)^power, negative for up. bevel is how high the
+// grind line runs, as a share of the way from the edge to the spine (to the
+// centre line on double-edged blades).
 
 export const TIP_STYLES = {
   // len is the point's length as a multiple of the last section's width;
@@ -24,63 +26,63 @@ export const TIP_STYLES = {
 
 export const BLADES = [
   {
-    id: "gladius", name: "gladius", edges: 2, tip: "long", length: [480, 560], width: [50, 56], hardness: [55, 58],
+    id: "gladius", name: "gladius", edges: 2, tip: "long", length: [480, 560], width: [50, 56], bevel: [0.55, 0.7], hardness: [55, 58],
     profile: (x) => 1 - 0.09 * Math.sin(Math.PI * x),
     about: "The Roman legionary's short stabbing sword, with a slight waist and a long triangular point.",
   },
   {
-    id: "seax", name: "Viking seax", edges: 1, align: "edge", tip: "seax", length: [320, 450], width: [38, 46], hardness: [57, 60],
+    id: "seax", name: "Viking seax", edges: 1, align: "edge", tip: "seax", length: [320, 450], width: [38, 46], bevel: [0.25, 0.35], hardness: [57, 60],
     profile: (x) => 0.88 + 0.22 * Math.min(x / 0.7, 1) - (x > 0.7 ? ((x - 0.7) / 0.3) * 0.35 : 0),
     about: "A heavy single-edged blade whose spine breaks sharply down to the point.",
   },
   {
-    id: "katana", name: "katana", edges: 1, align: "spine", tip: "kissaki", length: [680, 730], width: [30, 33], hardness: [60, 62],
+    id: "katana", name: "katana", edges: 1, align: "spine", tip: "kissaki", length: [680, 730], width: [30, 33], bevel: [0.7, 0.8], hardness: [60, 62],
     curve: { amount: [-20, -15], power: 2 }, steels: ["w2", "1095"],
     profile: (x) => 1 - 0.28 * x,
     about: "The samurai's curved sword, tapering gently to a short, strong kissaki.",
   },
   {
-    id: "falchion", name: "falchion", edges: 1, align: "spine", tip: "clip", length: [700, 800], width: [42, 50], hardness: [55, 58],
+    id: "falchion", name: "falchion", edges: 1, align: "spine", tip: "clip", length: [700, 800], width: [42, 50], bevel: [0.35, 0.5], hardness: [55, 58],
     profile: (x) => 1 + 0.45 * Math.pow(x, 1.5),
     about: "A medieval chopper that widens towards the point for weight in the cut.",
   },
   {
-    id: "shamshir", name: "shamshir", edges: 1, align: "spine", tip: "needle", length: [760, 840], width: [30, 35], hardness: [57, 60],
+    id: "shamshir", name: "shamshir", edges: 1, align: "spine", tip: "needle", length: [760, 840], width: [30, 35], bevel: [0.6, 0.7], hardness: [57, 60],
     curve: { amount: [-95, -70], power: 2.4 }, profile: (x) => 1 - 0.18 * x,
     about: "A Persian sabre with a deep, sweeping curve and a needle point.",
   },
   {
-    id: "arming", name: "arming sword", edges: 2, tip: "acute", length: [740, 800], width: [48, 52], hardness: [54, 57],
+    id: "arming", name: "arming sword", edges: 2, tip: "acute", length: [740, 800], width: [48, 52], bevel: [0.55, 0.75], hardness: [54, 57],
     profile: (x) => 1 - 0.42 * x,
     about: "The knight's one-handed sword: straight, double-edged and tapering to an acute point.",
   },
   {
-    id: "viking", name: "Viking sword", edges: 2, tip: "rounded", length: [760, 840], width: [54, 60], hardness: [54, 57],
+    id: "viking", name: "Viking sword", edges: 2, tip: "rounded", length: [760, 840], width: [54, 60], bevel: [0.45, 0.6], hardness: [54, 57],
     profile: (x) => 1 - 0.22 * x,
     about: "A broad, double-edged cutting sword with little taper and a rounded point.",
   },
   {
-    id: "jian", name: "jian", edges: 2, tip: "acute", length: [650, 740], width: [34, 40], hardness: [56, 59],
+    id: "jian", name: "jian", edges: 2, tip: "acute", length: [650, 740], width: [34, 40], bevel: [0.5, 0.65], hardness: [56, 59],
     profile: (x) => 1 - 0.18 * x,
     about: "The Chinese straight sword: slender, double-edged and quick.",
   },
   {
-    id: "messer", name: "messer", edges: 1, align: "spine", tip: "clip", length: [700, 800], width: [38, 45], hardness: [55, 58],
+    id: "messer", name: "messer", edges: 1, align: "spine", tip: "clip", length: [700, 800], width: [38, 45], bevel: [0.35, 0.5], hardness: [55, 58],
     profile: (x) => 1 - 0.08 * x,
     about: "The German 'long knife': a single-edged sword with a clipped point.",
   },
   {
-    id: "longsword", name: "longsword", edges: 2, tip: "acute", length: [880, 980], width: [48, 54], hardness: [54, 57],
+    id: "longsword", name: "longsword", edges: 2, tip: "acute", length: [880, 980], width: [48, 54], bevel: [0.55, 0.75], hardness: [54, 57],
     profile: (x) => 1 - 0.5 * x,
     about: "A two-handed sword with a strong taper for thrusting through gaps.",
   },
   {
-    id: "cutlass", name: "cutlass", edges: 1, align: "spine", tip: "clip", length: [640, 720], width: [36, 42], hardness: [54, 57],
+    id: "cutlass", name: "cutlass", edges: 1, align: "spine", tip: "clip", length: [640, 720], width: [36, 42], bevel: [0.35, 0.5], hardness: [54, 57],
     curve: { amount: [-18, -10], power: 2 }, profile: (x) => 1 + 0.06 * Math.sin(Math.PI * x),
     about: "A short, broad sailor's sabre with a gentle curve.",
   },
   {
-    id: "falcata", name: "falcata", edges: 1, align: "spine", tip: "falcata", length: [460, 560], width: [45, 52], hardness: [55, 58],
+    id: "falcata", name: "falcata", edges: 1, align: "spine", tip: "falcata", length: [460, 560], width: [45, 52], bevel: [0.4, 0.55], hardness: [55, 58],
     curve: { amount: [20, 30], power: 2 }, profile: (x) => 0.8 + 0.45 * Math.sin(Math.PI * x * 0.85),
     about: "An Iberian sword whose forward-curved blade swells towards the point.",
   },

@@ -69,14 +69,37 @@
     <button type="button" class="link" id="done">Finished forging</button>
   </section>
 
+  <section class="stage" id="grind" hidden aria-label="Grind">
+    <div class="clock-row">
+      <div class="clock"><span id="gclock">40</span><small>s</small></div>
+      <div class="track"><div class="fill" id="gtrack"></div></div>
+    </div>
+
+    <div class="scene grinder" id="gscene">
+      <svg id="gbar" aria-label="The blade on the grinder"></svg>
+      <div class="sparks" id="gsparks" aria-hidden="true"></div>
+      <p class="feedback" id="gfeedback" aria-live="polite"></p>
+      <p class="side" id="side"></p>
+    </div>
+
+    <div class="cells" id="gcells" aria-label="Edge thickness by section"></div>
+    <p class="readout" id="greadout"></p>
+
+    <div class="controls">
+      <button type="button" class="secondary" id="flip">Flip<kbd>F</kbd></button>
+      <button type="button" class="primary" id="gdone">Finished grinding</button>
+    </div>
+  </section>
+
   <section class="result" id="result" hidden aria-live="polite">
-    <p class="kicker">Forging</p>
+    <p class="kicker" id="result-kicker">Forging</p>
     <p class="score"><span id="score"></span><small>/100</small></p>
     <svg class="sword" id="final" aria-hidden="true"></svg>
     <dl class="breakdown" id="breakdown"></dl>
     <p class="verdict" id="verdict"></p>
-    <p class="note">This is the forge stage on its own for now. Grinding, hardening, tempering and testing come next.</p>
-    <button type="button" class="primary" id="again">Forge it again</button>
+    <p class="note" id="result-note"></p>
+    <button type="button" class="primary" id="next">To the grinder</button>
+    <button type="button" class="link" id="again">Start again</button>
   </section>
 </main>
 
@@ -90,6 +113,13 @@
     <li><strong>Watch the colour.</strong> Hot steel moves easily; as it cools it moves less, which is how you make small corrections. The commission shows the colour not to hammer below: cold blows hardly move it and <strong>build cracks you won't see until the quench</strong>. <strong>Heat</strong> it in the fire (F) to heat it up, and take it out before it reaches the burning colour, where it throws sparks and scale eats it away.</li>
     <li>The boxes show how far each section is from its width: <span class="good">green</span> is within 1%, a minus means you've hammered it too thin, and there's no making it wider again.</li>
     <li>You have <strong>90 seconds</strong>. Widths are drawn taller than life so you can see them.</li>
+  </ol>
+  <h3>Grind</h3>
+  <ol>
+    <li>The belt runs back and forth along your blade. <strong>Press and hold on the blade to grind</strong>, and move up and down to set how high the bevel goes (with a mouse, hover to aim and hold the button or Space). <strong>Follow the dashed line.</strong> Ground steel can't be put back, so a line that's too high stays too high.</li>
+    <li>Every pass also <strong>thins the edge</strong>, and the edge doesn't come off the anvil evenly. The boxes show each section's edge in mm: get them all to about <strong>1 mm</strong> (<span class="good">green</span>). Lift off over the thin parts and stay on the thick ones.</li>
+    <li><strong>Flip</strong> it (F) to grind the other side to match. An edge left too thin, or two sides ground unevenly, can crack or warp in the quench.</li>
+    <li>You have <strong>40 seconds</strong> for both sides.</li>
   </ol>
   <form method="dialog"><button class="primary">To the anvil</button></form>
 </dialog>

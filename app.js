@@ -5,6 +5,9 @@ import {
   FORGE_TIME, SWEET, SPAN, newBar, advance, setFire, strike, tempAt, markerAt, sectionLengths,
 } from "./forge.js";
 import { glowCSS, glowStrength, colourName } from "./glow.js";
+import {
+  GRIND_TIME, COLUMNS, BELT, EDGE, EDGE_OK, FLIP_TIME, beltAt, geometry, newGrind, edgeLeft, grind, flip, grindScore,
+} from "./grind.js";
 
 const KEY = dayKey();
 const C = commission(KEY);
@@ -45,7 +48,12 @@ const el = (tag, attrs = {}) => {
 };
 
 const state = {
-  phase: "brief", // brief, forge, done
+  phase: "brief", // brief, forge, forged, grind, ground
+  forged: null, // the forged blade: { widths, lengths }
+  forgeScore: null,
+  g: null, // the grind
+  cols: null, // the forged blade's strips, for the grind
+  press: { down: false, y: null, at: 0 }, // the grind's hold on the belt
   bar: null,
   picked: 0,
   t0: 0, // performance.now() when the forge stage started
@@ -93,6 +101,31 @@ const sound = {
       osc.stop(now + decay);
     }
     out.gain.value = 0.6;
+  },
+  // hiss starts or stops the grinder's noise.
+  hiss(on) {
+    if (!this.ctx) return;
+    if (on && this.on && !this.hissing) {
+      const ctx = this.ctx;
+      const buf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
+      const data = buf.getChannelData(0);
+      for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      src.loop = true;
+      const filter = ctx.createBiquadFilter();
+      filter.type = "bandpass";
+      filter.frequency.value = 3200;
+      filter.Q.value = 0.8;
+      const gain = ctx.createGain();
+      gain.gain.value = 0.08;
+      src.connect(filter).connect(gain).connect(ctx.destination);
+      src.start();
+      this.hissing = src;
+    } else if (!on && this.hissing) {
+      this.hissing.stop();
+      this.hissing = null;
+    }
   },
 };
 
@@ -277,6 +310,8 @@ const stageTime = (stamp) => (stamp - state.t0) / 1000;
 
 function start() {
   sound.init();
+  sound.hiss(false);
+  $("grind").hidden = true;
   state.phase = "forge";
   state.bar = newBar(C, STEEL);
   state.picked = 0;
@@ -342,8 +377,14 @@ function finish(t) {
 function showResult() {
   const bar = state.bar;
   const s = forgeScore(C, bar);
+  state.forged = { widths: [...bar.widths], lengths: sectionLengths(bar) };
+  state.forgeScore = s;
+  state.phase = "forged";
   $("forge").hidden = true;
   $("result").hidden = false;
+  $("result-kicker").textContent = "Forging";
+  $("result-note").textContent = "Next, grind the bevels.";
+  $("next").hidden = false;
   $("score").textContent = s.score;
   const final = $("final");
   swordSVG(final, bar.widths, sectionLengths(bar), { target: true });
@@ -379,6 +420,7 @@ function setStage(id) {
 
 function frame(now) {
   requestAnimationFrame(frame);
+  if (state.phase === "grind") grindFrame(now);
   if (state.phase !== "forge") return;
   const t = stageTime(now);
   if (t >= FORGE_TIME) {
@@ -417,18 +459,274 @@ function frame(now) {
   }
 }
 
+
+// --- The grinder
+
+const gscene = { sy: 1, ref: 0 };
+
+function startGrind() {
+  state.phase = "grind";
+  state.g = newGrind();
+  state.press = { down: false, y: null, at: 0 };
+  state.t0 = performance.now();
+  const { widths, lengths } = state.forged;
+  gscene.ref = C.billet;
+  state.cols = geometry(BLADE, widths, lengths, gscene.ref, C.stock);
+  $("result").hidden = true;
+  $("grind").hidden = false;
+  setStage("grind");
+  buildGrinder();
+  drawGrind(0);
+  say("Hold the blade to the belt along the dashed line", "", 2500);
+}
+
+function buildGrinder() {
+  const svg = $("gbar");
+  const { widths, lengths } = state.forged;
+  const shape = outline(BLADE, widths, lengths, { ref: gscene.ref });
+  const L = shape.length;
+  const ys = [...shape.top, ...shape.bottom].map(([, y]) => y);
+  const minY = Math.min(...ys), maxY = Math.max(...ys);
+  const tall = maxY - minY;
+  // Draw the blade about a quarter as tall as the scene is wide, so the
+  // line has room to be traced.
+  gscene.sy = Math.min(8, Math.max(1.5, (0.26 * L) / tall));
+  gscene.L = L;
+  const pad = tall * gscene.sy * 0.18;
+  gscene.vb = { x: -L * 0.02, y: minY * gscene.sy - pad, w: L * 1.04, h: tall * gscene.sy + 2 * pad };
+  svg.setAttribute("viewBox", `${gscene.vb.x} ${gscene.vb.y} ${gscene.vb.w} ${gscene.vb.h}`);
+  gscene.steel = el("path", { class: "steel", d: outlinePath(shape, { sy: gscene.sy }) });
+  gscene.ground = el("path", { class: "ground" });
+  gscene.goal = el("path", { class: "goal" });
+  gscene.line = el("path", { class: "line" });
+  gscene.other = el("path", { class: "other" });
+  gscene.belt = el("rect", { class: "belt", y: gscene.vb.y, height: gscene.vb.h, width: BELT * L, rx: 2 });
+  gscene.contact = el("line", { class: "contact" });
+  svg.replaceChildren(gscene.steel, gscene.ground, gscene.other, gscene.goal, gscene.line, gscene.belt, gscene.contact);
+
+  // The target line, mirrored on double-edged blades.
+  gscene.goal.setAttribute("d", linePath(state.cols.map(() => C.bevel)));
+
+  const cells = $("gcells");
+  cells.replaceChildren();
+  for (let i = 0; i < N; i++) {
+    const b = document.createElement("div");
+    b.className = "cell";
+    b.innerHTML = `<div class="bar"></div><span></span>`;
+    cells.append(b);
+  }
+}
+
+// lineY is where a line at height h (a share of the span) sits over strip j,
+// in drawn coordinates; mirror gives the other edge's on double-edged blades.
+function lineY(j, h, mirror = false) {
+  const c = state.cols[j];
+  const y = mirror ? c.edge - 2 * c.span + h * c.span : c.edge - h * c.span;
+  return y * gscene.sy;
+}
+
+function linePath(hs) {
+  const cols = state.cols;
+  const pts = (mirror) => cols.map((c, j) => `${c.mm.toFixed(1)},${lineY(j, hs[j], mirror).toFixed(2)}`).join("L");
+  let d = `M${pts(false)}`;
+  if (BLADE.edges === 2) d += `M${pts(true)}`;
+  return d;
+}
+
+function groundPath(hs) {
+  const cols = state.cols;
+  const band = (mirror) => {
+    const up = cols.map((c, j) => `${c.mm.toFixed(1)},${lineY(j, hs[j], mirror).toFixed(2)}`);
+    const edge = cols.map((c, j) => `${c.mm.toFixed(1)},${lineY(j, 0, mirror).toFixed(2)}`).reverse();
+    return `M${up.join("L")}L${edge.join("L")}Z`;
+  };
+  return band(false) + (BLADE.edges === 2 ? band(true) : "");
+}
+
+function drawGrind(t) {
+  const g = state.g;
+  const side = g.side;
+  gscene.ground.setAttribute("d", groundPath(g.lines[side]));
+  gscene.line.setAttribute("d", linePath(g.lines[side]));
+  gscene.other.setAttribute("d", linePath(g.lines[1 - side]));
+  $("side").textContent = side === 0 ? "First side" : "Second side";
+
+  // Each section's edge, from the strips in it.
+  const per = COLUMNS / N;
+  const cells = $("gcells").children;
+  for (let i = 0; i < N; i++) {
+    let sum = 0;
+    for (let j = i * per; j < (i + 1) * per; j++) sum += edgeLeft(g, state.cols, j);
+    const e = sum / per;
+    const cell = cells[i];
+    const on = Math.abs(e - EDGE) <= EDGE_OK;
+    const thin = e < EDGE - EDGE_OK;
+    cell.classList.toggle("on", on);
+    cell.classList.toggle("thin", thin);
+    cell.querySelector("span").textContent = e.toFixed(1);
+    cell.querySelector(".bar").style.height = on || thin ? "100%" : `${Math.min(1, (e - EDGE) / 3) * 100}%`;
+  }
+  const off = (k) => (g.depth[k].reduce((a, b) => a + b, 0) / COLUMNS).toFixed(2);
+  $("greadout").textContent = `Edge (mm), aim for ${EDGE.toFixed(1)} · ground off ${off(0)} | ${off(1)} mm`;
+
+  const u = beltAt(t);
+  gscene.belt.setAttribute("x", (u - BELT / 2) * gscene.L);
+  const y = state.press.y;
+  if (y === null) {
+    gscene.contact.setAttribute("x1", 0);
+    gscene.contact.setAttribute("x2", 0);
+  } else {
+    gscene.contact.setAttribute("x1", (u - BELT / 2) * gscene.L);
+    gscene.contact.setAttribute("x2", (u + BELT / 2) * gscene.L);
+    gscene.contact.setAttribute("y1", y * gscene.sy);
+    gscene.contact.setAttribute("y2", y * gscene.sy);
+  }
+}
+
+// bladeY turns a pointer event's position into the blade's own y (mm).
+function bladeY(e) {
+  const svg = $("gbar");
+  const ctm = svg.getScreenCTM();
+  if (!ctm) return null;
+  const p = new DOMPoint(e.clientX, e.clientY).matrixTransform(ctm.inverse());
+  return p.y / gscene.sy;
+}
+
+// holdAt records the blade being held to the belt (or let go) at an event:
+// first grinding up to the event's time with the hold as it was, then
+// taking the new height and grip.
+function holdAt(e, down) {
+  if (state.phase !== "grind") return;
+  const t = stageTime(e.timeStamp);
+  flushGrind(t);
+  if (!e.keyboard) state.press.y = bladeY(e);
+  state.press.down = down;
+  $("gscene").classList.toggle("pressing", down);
+  sound.hiss(down);
+}
+
+function flushGrind(t) {
+  const p = state.press;
+  const until = Math.min(t, GRIND_TIME);
+  if (until > p.at) {
+    state.g = grind(state.g, state.cols, p.at, until, p.down ? p.y : null);
+    p.at = until;
+  }
+}
+
+function doFlip(stamp) {
+  if (state.phase !== "grind") return;
+  const t = stageTime(stamp);
+  flushGrind(t);
+  state.g = flip(state.g, t);
+  const sc = $("gscene");
+  sc.classList.add("flipping");
+  setTimeout(() => sc.classList.remove("flipping"), FLIP_TIME * 1000);
+  say(state.g.side === 0 ? "Back to the first side" : "Flipped: now match the other side", "", 1500);
+}
+
+function grindFrame(now) {
+  const t = stageTime(now);
+  if (t >= GRIND_TIME) {
+    finishGrind(GRIND_TIME);
+    return;
+  }
+  flushGrind(t);
+  const left = GRIND_TIME - t;
+  $("gclock").textContent = Math.ceil(left);
+  $("gtrack").style.transform = `scaleX(${left / GRIND_TIME})`;
+  $("grind").classList.toggle("low", left < 10);
+  drawGrind(t);
+
+  // Sparks where the belt bites.
+  const p = state.press;
+  if (p.down && p.y !== null && t > state.g.flippedAt + FLIP_TIME) {
+    const u = beltAt(t);
+    const j = Math.max(0, Math.min(COLUMNS - 1, Math.floor(u * COLUMNS)));
+    if (p.y < state.cols[j].edge && Math.random() < 0.8) {
+      const svg = $("gbar").getBoundingClientRect();
+      const sc = $("gscene").getBoundingClientRect();
+      const px = svg.left - sc.left + ((u * gscene.L - gscene.vb.x) / gscene.vb.w) * svg.width;
+      const py = svg.top - sc.top + ((state.cols[j].edge * gscene.sy - gscene.vb.y) / gscene.vb.h) * svg.height;
+      const box = $("gsparks");
+      for (let k = 0; k < 2; k++) {
+        const s = document.createElement("i");
+        s.className = "spark";
+        const a = Math.PI * (0.25 + Math.random() * 0.5);
+        const d = 30 + Math.random() * 50;
+        s.style.cssText = `left:${px}px;top:${py}px;background:#ffcf7a;box-shadow:0 0 4px #ff9a3a;--dx:${Math.cos(a) * d}px;--dy:${Math.sin(a) * d}px`;
+        box.append(s);
+        s.addEventListener("animationend", () => s.remove());
+      }
+    }
+  }
+  const fb = state.feedback;
+  const msg = $("gfeedback");
+  msg.textContent = now < fb.until ? fb.text : "";
+  msg.className = `feedback ${now < fb.until ? fb.kind : ""}`;
+}
+
+function finishGrind(t) {
+  if (state.phase !== "grind") return;
+  flushGrind(t);
+  state.press.down = false;
+  sound.hiss(false);
+  state.phase = "ground";
+  const g = state.g;
+  const s = grindScore(C, g, state.cols);
+  $("grind").hidden = true;
+  $("result").hidden = false;
+  $("result-kicker").textContent = "Grinding";
+  $("score").textContent = s.score;
+  swordSVG($("final"), state.forged.widths, state.forged.lengths, { target: true });
+  const rows = [
+    ["Bevel lines", `${s.line}/100`],
+    ["Lines off on average", `${(s.lineErr * 100).toFixed(1)}%`],
+    ["Edge", `${s.edge}/100`],
+    ["Strips too thin", `${s.thin} of ${COLUMNS}`],
+    ["Sides uneven by", `${s.uneven.toFixed(2)} mm`],
+    ["Forging", `${state.forgeScore.score}/100`],
+  ];
+  $("breakdown").innerHTML = rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("");
+  const worries = [];
+  if (s.thin) worries.push(`${s.thin} strip${s.thin > 1 ? "s" : ""} of edge too thin, which may crack`);
+  if (s.uneven > 0.3) worries.push("sides ground unevenly, which may warp it");
+  $("verdict").textContent = worries.length ? `In the quench, watch out for ${worries.join(", and ")}.` : "Even sides and a sound edge: ready to harden.";
+  $("result-note").textContent = "Hardening, tempering and testing come next.";
+  $("next").hidden = true;
+}
+
 // --- Input
 
 function setup() {
   renderBrief();
   $("start").addEventListener("click", start);
   $("again").addEventListener("click", start);
+  $("next").addEventListener("click", () => { if (state.phase === "forged") startGrind(); });
+  $("flip").addEventListener("pointerdown", (e) => { e.preventDefault(); doFlip(e.timeStamp); });
+  $("gdone").addEventListener("click", (e) => finishGrind(stageTime(e.timeStamp)));
+  const gs = $("gscene");
+  gs.addEventListener("pointerdown", (e) => { e.preventDefault(); gs.setPointerCapture(e.pointerId); holdAt(e, true); });
+  gs.addEventListener("pointermove", (e) => holdAt(e, state.press.down));
+  gs.addEventListener("pointerup", (e) => holdAt(e, false));
+  gs.addEventListener("pointercancel", (e) => holdAt(e, false));
+  addEventListener("keyup", (e) => {
+    if (state.phase === "grind" && e.key === " ") holdAt({ timeStamp: e.timeStamp, keyboard: true }, false);
+  });
   $("strike").addEventListener("pointerdown", (e) => { e.preventDefault(); doStrike(e.timeStamp); });
   $("fire").addEventListener("pointerdown", (e) => { e.preventDefault(); toggleFire(e.timeStamp); });
   $("done").addEventListener("click", (e) => finish(stageTime(e.timeStamp)));
   addEventListener("keydown", (e) => {
-    if (state.phase !== "forge" || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
-    if ($("help").open) return;
+    if (e.repeat || e.ctrlKey || e.metaKey || e.altKey || $("help").open) return;
+    if (state.phase === "grind") {
+      const k = e.key.toLowerCase();
+      if (k === " ") holdAt({ timeStamp: e.timeStamp, keyboard: true }, true);
+      else if (k === "f") doFlip(e.timeStamp);
+      else return;
+      e.preventDefault();
+      return;
+    }
+    if (state.phase !== "forge") return;
     const k = e.key.toLowerCase();
     if (k === " " || k === "j") doStrike(e.timeStamp);
     else if (k === "f") toggleFire(e.timeStamp);

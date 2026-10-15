@@ -7,6 +7,7 @@ import { sectionLengths } from "./forge.js";
 
 export const SECTIONS = 8; // the blade is forged a section at a time
 export const BILLET_SCALE = 1.25; // the billet starts this much wider than the blade's widest section
+export const STOCK = [2.9, 4.5]; // mm: the range of the edge's thickness off the anvil
 export const FIRST_DAY = "2026-10-15"; // Forgle #1
 
 // mulberry32: a small, fast seeded PRNG.
@@ -62,7 +63,8 @@ export function bladeForDay(key) {
 }
 
 // commission builds a day's commission: the blade, its steel, its size and
-// shape (a target width for each section), the billet it's forged from and
+// shape (a target width for each section), the billet it's forged from, the
+// grind (bevel height, and the edge's thickness per section before it) and
 // the hardness it must be tempered to.
 export function commission(key) {
   const rand = mulberry32(hash("forgle:" + key));
@@ -77,6 +79,10 @@ export function commission(key) {
   const body = length - pointLength(blade, widths[SECTIONS - 1]);
   const lengths = Array(SECTIONS).fill(body / SECTIONS);
   const billet = Math.ceil(Math.max(...widths) * BILLET_SCALE);
+  // How high the grind line runs, and how thick the edge comes off the
+  // anvil along the blade (forging never leaves it even).
+  const bevel = Number(between(rand, blade.bevel).toFixed(2));
+  const stock = Array.from({ length: SECTIONS }, () => Number(between(rand, STOCK).toFixed(1)));
 
   return {
     key,
@@ -91,6 +97,8 @@ export function commission(key) {
     billet,
     areas: widths.map((w, i) => w * lengths[i]),
     hardness: blade.hardness,
+    bevel,
+    stock,
   };
 }
 

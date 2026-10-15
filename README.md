@@ -6,7 +6,7 @@ on Forged in Fire, with some of the busy heat management of RuneScape's
 Giants' Foundry. Then the blade is tested: paper, a hardwood post, rope, and
 a bend. No meat.
 
-So far only the first stage, the forge, is built.
+So far the first two stages, the forge and the grind, are built.
 
 ## The forge
 
@@ -29,6 +29,22 @@ So far only the first stage, the forge, is built.
 - 90 seconds. The score is three quarters profile (each 1% off on average
   costs 10 points) and a quarter length (each 1% off costs 20).
 
+## The grind
+
+- The forged blade goes on the grinder. A dashed line shows how high the
+  bevel should run (the day's height for the blade, as a share of the way
+  from edge to spine, or to the centre line on double-edged blades, which
+  are ground on both edges at once).
+- The belt runs back and forth along the blade by itself (2.2s end to end).
+  Press and hold on the blade to grind at that height (with a mouse, hover
+  and hold the button or Space). The grind line only goes up.
+- Every moment under the belt also takes 2.4 mm/s off that side's edge. The
+  edge comes off the anvil between 2.9 and 4.5 mm thick, varying along the
+  blade each day; the target is 1 mm (±0.2). Flip (F) for the other side.
+- 40 seconds for both sides. 60% for the lines, weighted by the blade's
+  width so the point counts little, and 40% for the edge. Strips under
+  0.6 mm and unevenly ground sides are kept for the quench.
+
 ## How it works
 
 It's a static page with no server.
@@ -41,6 +57,9 @@ It's a static page with no server.
 - `forge.js`: the forge stage's rules, pure functions of event times: the
   heat model is solved exactly between events, and a blow's quality comes
   from the event's timestamp, not animation frames.
+- `grind.js`: the grind stage's rules. The time between two events is
+  sampled on a fixed 5ms grid of absolute times, so the result doesn't
+  depend on how often the page updates.
 - `app.js` draws it and handles input.
 
 ## Running
