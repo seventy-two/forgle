@@ -221,7 +221,7 @@ kbd {
 .breakdown small { color: var(--muted); }
 .verdict { font-weight: 450; margin: 10px 0; letter-spacing: -0.01em; }
 .note { color: var(--muted); font-size: 0.8rem; }
-.result .sword .target { fill: none; stroke: var(--ink-2); stroke-dasharray: 4 3; stroke-width: 1; vector-effect: non-scaling-stroke; }
+.result .sword .target, #final-sword .target { fill: none; stroke: var(--ink-2); stroke-dasharray: 4 3; stroke-width: 1; vector-effect: non-scaling-stroke; }
 
 dialog {
   max-width: min(520px, calc(100vw - 32px)); border: 1px solid var(--line-strong); border-radius: var(--r); padding: 22px;
@@ -321,3 +321,4 @@ dialog .primary { width: 100%; }
   .practise button { padding: 6px 2px; letter-spacing: 0.02em; }
   .practise button:first-of-type { margin-left: 3px; }
 }
+#final-sword { margin: 0 0 16px; }

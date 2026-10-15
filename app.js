@@ -1241,6 +1241,8 @@ function showFinal() {
     test: state.trials.score,
   };
   state.scores = scores;
+  swordSVG($("final-sword"), state.forged.widths, state.forged.lengths,
+    { target: true, ...(state.hardened.cracked ? { crack: crackAt() } : {}) });
   const total = totalScore(scores);
   state.total = total;
   $("summary").hidden = false;
