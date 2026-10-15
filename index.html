@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>forgle</title>
+<meta name="description" content="Forge the day's sword to its commission: draw it out, grind it, harden it and temper it. A new blade every day.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 80'%3E%3Cpath d='M8,52 L58,30 L74,26 L62,40 L12,60 Z' fill='%23f78a22' stroke='%231b1a17' stroke-width='4' stroke-linejoin='round'/%3E%3Crect x='4' y='56' width='14' height='8' rx='2' transform='rotate(-24 11 60)' fill='%231b1a17'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="styles.css">
+<script type="module" src="app.js"></script>
+</head>
+<body>
+<main>
+  <header>
+    <div>
+      <h1>forgle</h1>
+      <p class="sub" id="day"></p>
+    </div>
+    <div class="header-buttons">
+      <button type="button" class="icon" id="sound" aria-label="Sound" aria-pressed="true">♪</button>
+      <button type="button" class="icon" id="help-open" aria-label="How to play">?</button>
+    </div>
+  </header>
+
+  <ol class="stages" id="stages" aria-label="Stages">
+    <li data-stage="forge">Forge</li>
+    <li data-stage="grind">Grind</li>
+    <li data-stage="harden">Harden</li>
+    <li data-stage="temper">Temper</li>
+    <li data-stage="test">Test</li>
+  </ol>
+
+  <section class="brief" id="brief" aria-label="Today's commission">
+    <p class="kicker">Today's commission</p>
+    <h2 id="brief-title"></h2>
+    <svg class="sword" id="sword" aria-hidden="true"></svg>
+    <p class="about" id="brief-about"></p>
+    <dl class="spec" id="spec"></dl>
+    <button type="button" class="primary" id="start">Light the forge</button>
+  </section>
+
+  <section class="stage" id="forge" hidden aria-label="Forge">
+    <div class="clock-row">
+      <div class="clock"><span id="clock">90</span><small>s</small></div>
+      <div class="track"><div class="fill" id="track"></div></div>
+    </div>
+
+    <div class="scene" id="scene">
+      <div class="fire" aria-hidden="true"></div>
+      <svg id="bar" aria-label="The blade"></svg>
+      <div class="sparks" id="sparks" aria-hidden="true"></div>
+      <p class="feedback" id="feedback" aria-live="polite"></p>
+      <div class="swatches" id="swatches"></div>
+    </div>
+
+    <div class="cells" id="cells" aria-label="Sections"></div>
+    <p class="readout" id="readout"></p>
+
+    <div class="meter" aria-hidden="true">
+      <div class="zone"></div>
+      <div class="sweet"></div>
+      <div class="marker" id="marker"></div>
+    </div>
+
+    <div class="controls">
+      <button type="button" class="secondary" id="fire"><span class="label">Heat</span><kbd>F</kbd></button>
+      <button type="button" class="primary strike" id="strike">Strike<kbd>Space</kbd></button>
+    </div>
+    <button type="button" class="link" id="done">Finished forging</button>
+  </section>
+
+  <section class="result" id="result" hidden aria-live="polite">
+    <p class="kicker">Forging</p>
+    <p class="score"><span id="score"></span><small>/100</small></p>
+    <svg class="sword" id="final" aria-hidden="true"></svg>
+    <dl class="breakdown" id="breakdown"></dl>
+    <p class="verdict" id="verdict"></p>
+    <p class="note">This is the forge stage on its own for now. Grinding, hardening, tempering and testing come next.</p>
+    <button type="button" class="primary" id="again">Forge it again</button>
+  </section>
+</main>
+
+<dialog id="help">
+  <h2>How to play</h2>
+  <p>Every day there's a new commission: a sword, its steel and its size. Forge it, grind it, harden it and temper it, then it's tested.</p>
+  <h3>Forge</h3>
+  <ol>
+    <li>The billet starts as a plain bar, wider and shorter than the blade. <strong>Hammer each section down to the dashed outline</strong>; the steel you squeeze out of its width makes it longer.</li>
+    <li><strong>Pick a section</strong> by tapping it or its box below (or ← → and 1–8), then <strong>strike</strong> (Space). Strike when the marker crosses the centre of the anvil: a centred blow moves the most steel, an off-centre one less, and a glancing one stresses it. Each blow also moves the sections either side a little.</li>
+    <li><strong>Watch the colour.</strong> Hot steel moves easily; as it cools it moves less, which is how you make small corrections. The commission shows the colour not to hammer below: cold blows hardly move it and <strong>build cracks you won't see until the quench</strong>. <strong>Heat</strong> it in the fire (F) to heat it up, and take it out before it reaches the burning colour, where it throws sparks and scale eats it away.</li>
+    <li>The boxes show how far each section is from its width: <span class="good">green</span> is within 1%, a minus means you've hammered it too thin, and there's no making it wider again.</li>
+    <li>You have <strong>90 seconds</strong>. Widths are drawn taller than life so you can see them.</li>
+  </ol>
+  <form method="dialog"><button class="primary">To the anvil</button></form>
+</dialog>
+</body>
+</html>
