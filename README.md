@@ -6,7 +6,7 @@ on Forged in Fire, with some of the busy heat management of RuneScape's
 Giants' Foundry. Then the blade is tested: paper, a hardwood post, rope, and
 a bend. No meat.
 
-So far the first two stages, the forge and the grind, are built.
+So far the forge, the grind and the harden stages are built.
 
 ## The forge
 
@@ -45,6 +45,28 @@ So far the first two stages, the forge and the grind, are built.
   width so the point counts little, and 40% for the edge. Strips under
   0.6 mm and unevenly ground sides are kept for the quench.
 
+## Harden
+
+- The heat-treat forge levels off at 900°C (time constant 4s), so it can
+  take any steel past its critical temperature (770–800°C) but not much
+  further. Every steel's critical temperature glows about the same cherry,
+  so the magnet is the tool: it sticks below critical. Testing takes the
+  blade out of the fire.
+- Quench it in water, brine or oil. It cools for 0.6s on the way. Each
+  steel's note on the commission says what it wants. Oil steels in water or
+  brine take a shock that nearly doubles everything else; W2 in oil comes
+  out 7 HRC soft.
+- The quench rocks the blade (a few slow waves, different each day) for 4s
+  in oil or 2.5s in water or brine. Drag sideways (or ← →) to keep it
+  upright. The average lean (0.33 mm a degree) plus uneven grinding
+  (1.2 mm per mm) is the warp.
+- Strain adds up the forge's worst section stress, seconds spent burning,
+  edge strips ground under 0.6 mm, going in more than 50°C past critical,
+  and the quench, scaled by the steel's crack sensitivity. At 100% it
+  cracks. No luck involved.
+- 35 seconds to get it into the quench, or it cools in the air (30 HRC).
+  Score: 0 if cracked, otherwise 55% hardness, 45% warp (4 mm loses it all).
+
 ## How it works
 
 It's a static page with no server.
@@ -60,6 +82,8 @@ It's a static page with no server.
 - `grind.js`: the grind stage's rules. The time between two events is
   sampled on a fixed 5ms grid of absolute times, so the result doesn't
   depend on how often the page updates.
+- `harden.js`: heating, the magnet, the plunge (the tilt is summed on the
+  same kind of fixed grid), hardness, strain and warp.
 - `app.js` draws it and handles input.
 
 ## Running

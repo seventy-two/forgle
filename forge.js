@@ -22,10 +22,11 @@ export const SCALE_RATE = 0.004; // share of the steel lost to scale per second 
 // --- Heat
 
 // tempAt is the blade's temperature at time t, from its heat state: the
-// temperature at its last change (at) and whether it's in the fire.
-export function tempAt(heat, t) {
+// temperature at its last change (at) and whether it's in the fire. fire
+// and tau are the fire's temperature and how quickly it heats the blade.
+export function tempAt(heat, t, fire = FIRE, tau = HEAT_TAU) {
   const dt = Math.max(0, t - heat.at);
-  if (heat.inFire) return FIRE - (FIRE - heat.T) * Math.exp(-dt / HEAT_TAU);
+  if (heat.inFire) return fire - (fire - heat.T) * Math.exp(-dt / tau);
   return ROOM + (heat.T - ROOM) * Math.exp(-dt / COOL_TAU);
 }
 

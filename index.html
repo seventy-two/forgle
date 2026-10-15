@@ -91,6 +91,41 @@
     </div>
   </section>
 
+  <section class="stage" id="harden" hidden aria-label="Harden">
+    <div class="clock-row">
+      <div class="clock"><span id="hclock">35</span><small>s</small></div>
+      <div class="track"><div class="fill" id="htrack"></div></div>
+    </div>
+
+    <div class="scene" id="hscene">
+      <div class="fire" aria-hidden="true"></div>
+      <svg id="hbar" aria-label="The blade in the heat-treat forge"></svg>
+      <svg id="tank" viewBox="0 0 200 250" hidden aria-label="The quench tank">
+        <rect class="liquid" id="liquid" x="20" y="105" width="160" height="140" rx="6"/>
+        <g id="bubbles"></g>
+        <line class="plumb" x1="100" x2="100" y1="8" y2="245"/>
+        <g id="plunger"><path class="steel" id="pblade"/></g>
+        <rect class="tank-wall" x="20" y="105" width="160" height="140" rx="6"/>
+      </svg>
+      <p class="feedback" id="hfeedback" aria-live="polite"></p>
+      <p class="side" id="hstatus"></p>
+    </div>
+
+    <div id="heat-controls">
+      <div class="controls">
+        <button type="button" class="secondary" id="hfire"><span class="label">Heat</span><kbd>F</kbd></button>
+        <button type="button" class="secondary" id="magnet">Magnet<kbd>M</kbd></button>
+      </div>
+      <p class="readout">Quench it in</p>
+      <div class="tanks">
+        <button type="button" class="secondary tank water" data-q="water">Water<kbd>1</kbd></button>
+        <button type="button" class="secondary tank brine" data-q="brine">Brine<kbd>2</kbd></button>
+        <button type="button" class="secondary tank oil" data-q="oil">Oil<kbd>3</kbd></button>
+      </div>
+    </div>
+    <p class="readout" id="plunge-hint" hidden>Drag sideways (or ← →) to keep the tip on the line</p>
+  </section>
+
   <section class="result" id="result" hidden aria-live="polite">
     <p class="kicker" id="result-kicker">Forging</p>
     <p class="score"><span id="score"></span><small>/100</small></p>
@@ -120,6 +155,14 @@
     <li>Every pass also <strong>thins the edge</strong>, and the edge doesn't come off the anvil evenly. The boxes show each section's edge in mm: get them all to about <strong>1 mm</strong> (<span class="good">green</span>). Lift off over the thin parts and stay on the thick ones.</li>
     <li><strong>Flip</strong> it (F) to grind the other side to match. An edge left too thin, or two sides ground unevenly, can crack or warp in the quench.</li>
     <li>You have <strong>40 seconds</strong> for both sides.</li>
+  </ol>
+  <h3>Harden</h3>
+  <ol>
+    <li><strong>Heat</strong> the blade (F) in the heat-treat forge to just past its <strong>critical temperature</strong>, where steel stops being magnetic. It's hard to tell by colour, so use the <strong>magnet</strong> (M): it sticks until the steel's hot enough. Testing takes the blade out of the fire, and it cools while it's out. Leave it in too long and it overheats.</li>
+    <li><strong>Quench it</strong> in water, brine or oil (1, 2, 3). The steel's note on the commission says what it wants. The wrong one can crack it or leave it soft.</li>
+    <li>The quench boils and rocks the blade. <strong>Drag sideways</strong> (or ← →) to keep its tip on the line. Any lean warps it.</li>
+    <li>Then you find out whether it cracked. Cold blows in the forge, burnt steel, edges ground too thin, quenching too hot and the wrong quench all add strain.</li>
+    <li>You have <strong>35 seconds</strong> to get it into the quench, or it cools in the air.</li>
   </ol>
   <form method="dialog"><button class="primary">To the anvil</button></form>
 </dialog>

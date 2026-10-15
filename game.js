@@ -64,8 +64,8 @@ export function bladeForDay(key) {
 
 // commission builds a day's commission: the blade, its steel, its size and
 // shape (a target width for each section), the billet it's forged from, the
-// grind (bevel height, and the edge's thickness per section before it) and
-// the hardness it must be tempered to.
+// grind (bevel height, and the edge's thickness per section before it), how
+// the quench rocks it, and the hardness it must be tempered to.
 export function commission(key) {
   const rand = mulberry32(hash("forgle:" + key));
   const blade = bladeForDay(key);
@@ -83,6 +83,13 @@ export function commission(key) {
   // anvil along the blade (forging never leaves it even).
   const bevel = Number(between(rand, blade.bevel).toFixed(2));
   const stock = Array.from({ length: SECTIONS }, () => Number(between(rand, STOCK).toFixed(1)));
+  // How the quench rocks the blade: a few waves, the slowest strongest.
+  const wobble = [0.3, 0.7, 1.5].map((f, i) => ({
+    f: Number((f * between(rand, [0.8, 1.25])).toFixed(3)),
+    phase: Number((rand() * 2 * Math.PI).toFixed(3)),
+    amp: [1, 0.45, 0.15][i],
+    sign: rand() < 0.5 ? -1 : 1,
+  }));
 
   return {
     key,
@@ -99,6 +106,7 @@ export function commission(key) {
     hardness: blade.hardness,
     bevel,
     stock,
+    wobble,
   };
 }
 

@@ -8,6 +8,10 @@ import { glowCSS, glowStrength, colourName } from "./glow.js";
 import {
   GRIND_TIME, COLUMNS, BELT, EDGE, EDGE_OK, FLIP_TIME, beltAt, geometry, newGrind, edgeLeft, grind, flip, grindScore,
 } from "./grind.js";
+import {
+  HARDEN_TIME, TRANSFER, CRACK, KEY_STEER, MAX_STEER, QUENCHES, htTemp, htSetFire, magnetSticks, quenchTemp,
+  newPlunge, steer, tiltAt, meanTilt, hardness, strain, warp, hardenScore,
+} from "./harden.js";
 
 const KEY = dayKey();
 const C = commission(KEY);
@@ -54,6 +58,11 @@ const state = {
   g: null, // the grind
   cols: null, // the forged blade's strips, for the grind
   press: { down: false, y: null, at: 0 }, // the grind's hold on the belt
+  grindScore: null,
+  heat: null, // the harden stage's heat
+  plunge: null, // the quench, once it's in
+  drag: null, // { x, steer } where a drag on the tank started
+  hardened: null,
   bar: null,
   picked: 0,
   t0: 0, // performance.now() when the forge stage started
@@ -131,7 +140,7 @@ const sound = {
 
 // --- The commission card
 
-function swordSVG(svg, widths, lengths, { target } = {}) {
+function swordSVG(svg, widths, lengths, { target, crack } = {}) {
   const shape = outline(BLADE, widths, lengths, { curve: C.curve, ref: Math.max(...C.widths) });
   const L = C.length;
   const grip = L * HILT.grip;
@@ -154,6 +163,14 @@ function swordSVG(svg, widths, lengths, { target } = {}) {
   if (target) {
     const goal = outline(BLADE, C.widths, C.lengths, { curve: C.curve, ref: Math.max(...C.widths) });
     svg.append(el("path", { class: "target", d: outlinePath(goal) }));
+  }
+  if (crack !== undefined) {
+    // A jagged crack running up from the edge at crack (a share of the length).
+    const i = Math.min(shape.bottom.length - 1, Math.round(crack * (shape.bottom.length - 1)));
+    const [x, y] = shape.bottom[i];
+    const h = C.width * 0.55;
+    const d = `M${x},${y} l${-h * 0.15},${-h * 0.25} l${h * 0.2},${-h * 0.2} l${-h * 0.12},${-h * 0.3} l${h * 0.1},${-h * 0.25}`;
+    svg.append(el("path", { class: "crack", d }));
   }
 }
 
@@ -312,6 +329,7 @@ function start() {
   sound.init();
   sound.hiss(false);
   $("grind").hidden = true;
+  $("harden").hidden = true;
   state.phase = "forge";
   state.bar = newBar(C, STEEL);
   state.picked = 0;
@@ -384,6 +402,7 @@ function showResult() {
   $("result").hidden = false;
   $("result-kicker").textContent = "Forging";
   $("result-note").textContent = "Next, grind the bevels.";
+  $("next").textContent = "To the grinder";
   $("next").hidden = false;
   $("score").textContent = s.score;
   const final = $("final");
@@ -421,6 +440,7 @@ function setStage(id) {
 function frame(now) {
   requestAnimationFrame(frame);
   if (state.phase === "grind") grindFrame(now);
+  if (state.phase === "harden" || state.phase === "plunge") hardenFrame(now);
   if (state.phase !== "forge") return;
   const t = stageTime(now);
   if (t >= FORGE_TIME) {
@@ -692,7 +712,216 @@ function finishGrind(t) {
   if (s.thin) worries.push(`${s.thin} strip${s.thin > 1 ? "s" : ""} of edge too thin, which may crack`);
   if (s.uneven > 0.3) worries.push("sides ground unevenly, which may warp it");
   $("verdict").textContent = worries.length ? `In the quench, watch out for ${worries.join(", and ")}.` : "Even sides and a sound edge: ready to harden.";
-  $("result-note").textContent = "Hardening, tempering and testing come next.";
+  state.grindScore = s;
+  $("result-note").textContent = "Next, harden it.";
+  $("next").textContent = "To the quench";
+  $("next").hidden = false;
+}
+
+// --- Hardening
+
+const hscene = { sy: 1 };
+const ROOM_T = 20;
+
+function startHarden() {
+  state.phase = "harden";
+  state.heat = { T: ROOM_T, at: 0, inFire: false };
+  state.plunge = null;
+  state.t0 = performance.now();
+  $("result").hidden = true;
+  $("harden").hidden = false;
+  $("hbar").removeAttribute("hidden");
+  $("tank").setAttribute("hidden", "");
+  $("heat-controls").hidden = false;
+  $("plunge-hint").hidden = true;
+  $("hscene").classList.remove("plunging", "in-fire");
+  $("hfire").classList.remove("active");
+  $("hfire").querySelector(".label").textContent = "Heat";
+  $("hstatus").textContent = "";
+  setStage("harden");
+
+  const { widths, lengths } = state.forged;
+  const shape = outline(BLADE, widths, lengths, { ref: C.billet });
+  const L = shape.length;
+  const ys = [...shape.top, ...shape.bottom].map(([, y]) => y);
+  const minY = Math.min(...ys), maxY = Math.max(...ys);
+  hscene.sy = Math.min(4, Math.max(1, (0.2 * L) / (maxY - minY)));
+  const h = (maxY - minY) * hscene.sy;
+  const svg = $("hbar");
+  svg.setAttribute("viewBox", `${-L * 0.03} ${minY * hscene.sy - h * 0.2} ${L * 1.06} ${h * 1.4}`);
+  hscene.path = el("path", { class: "hot", d: outlinePath(shape, { sy: hscene.sy }) });
+  svg.replaceChildren(hscene.path);
+  // The same blade, stood on its point, for the tank.
+  const k = 205 / L;
+  $("pblade").setAttribute("d", outlinePath(shape));
+  $("pblade").setAttribute("transform", `rotate(90) scale(${k}) translate(0 ${-(minY + maxY) / 2})`);
+  say("Heat it to just past critical: the magnet tells you when", "", 3000);
+}
+
+function htFire(stamp) {
+  if (state.phase !== "harden") return;
+  const t = stageTime(stamp);
+  const inFire = !state.heat.inFire;
+  state.heat = htSetFire(state.heat, t, inFire);
+  $("hscene").classList.toggle("in-fire", inFire);
+  $("hfire").classList.toggle("active", inFire);
+  $("hfire").querySelector(".label").textContent = inFire ? "Pull out" : "Heat";
+}
+
+function useMagnet(stamp) {
+  if (state.phase !== "harden") return;
+  const t = stageTime(stamp);
+  if (state.heat.inFire) htFire(stamp);
+  const sticks = magnetSticks(htTemp(state.heat, t), STEEL);
+  sound.blow(sticks ? "glancing" : "clean");
+  say(sticks ? "The magnet sticks: not hot enough yet" : "The magnet falls away: it's past critical", sticks ? "cold" : "", 2000);
+  $("hstatus").textContent = `Magnet at ${Math.floor(t)}s: ${sticks ? "sticks" : "doesn't stick"}`;
+}
+
+function quench(q, stamp) {
+  if (state.phase !== "harden") return;
+  const t = stageTime(stamp);
+  state.quenchT = quenchTemp(state.heat, t);
+  state.plunge = newPlunge(t + TRANSFER, q);
+  state.phase = "plunge";
+  state.drag = null;
+  $("hscene").classList.remove("in-fire");
+  $("hscene").classList.add("plunging");
+  $("hbar").setAttribute("hidden", "");
+  $("tank").removeAttribute("hidden");
+  $("heat-controls").hidden = true;
+  $("plunge-hint").hidden = false;
+  $("liquid").style.setProperty("--liquid", { water: "#2d5f8a", brine: "#5b7d8f", oil: "#9a6a17" }[q]);
+  $("pblade").style.setProperty("--glow", glowCSS(state.quenchT));
+  $("hstatus").textContent = `Into the ${QUENCHES[q].name.toLowerCase()}`;
+  sound.hiss(true);
+  say("Keep it upright!", "", 1500);
+}
+
+function hardenFrame(now) {
+  const t = stageTime(now);
+  const fb = state.feedback;
+  const msg = $("hfeedback");
+  msg.textContent = now < fb.until ? fb.text : "";
+  msg.className = `feedback ${now < fb.until ? fb.kind : ""}`;
+
+  if (state.phase === "harden") {
+    if (t >= HARDEN_TIME) {
+      revealHarden("air");
+      return;
+    }
+    const left = HARDEN_TIME - t;
+    $("hclock").textContent = Math.ceil(left);
+    $("htrack").style.transform = `scaleX(${left / HARDEN_TIME})`;
+    $("harden").classList.toggle("low", left < 10);
+    const T = htTemp(state.heat, t);
+    const colour = glowCSS(T);
+    const g = glowStrength(T);
+    hscene.path.style.fill = colour;
+    hscene.path.style.filter = g > 0 ? `drop-shadow(0 0 ${2 + g * 10}px ${colour})` : "none";
+    return;
+  }
+
+  // In the quench: lower it in, rock it, cool its glow.
+  const p = state.plunge;
+  const into = Math.max(0, Math.min(1, (t - p.start + TRANSFER) / (TRANSFER + 0.3)));
+  const tilt = t < p.start ? 0 : tiltAt(p, C, t);
+  // A positive lean swings the tip right, the way a drag to the right does.
+  $("plunger").setAttribute("transform", `translate(100 ${-150 + 158 * into}) rotate(${-tilt})`);
+  const cool = Math.max(0, Math.min(1, (t - p.start) / (p.end - p.start)));
+  $("pblade").style.setProperty("--glow", glowCSS(state.quenchT - cool * 700 - (t < p.start ? 0 : 150)));
+  $("hstatus").textContent = t < p.start ? "" : `${Math.abs(tilt).toFixed(0)}° off upright`;
+  const left = Math.max(0, p.end - t);
+  $("hclock").textContent = left.toFixed(1);
+  $("htrack").style.transform = `scaleX(${left / QUENCHES[p.quenchant].time})`;
+  if (t > p.start && Math.random() < (p.quenchant === "oil" ? 0.35 : 0.8)) bubble(tilt);
+  if (t >= p.end) {
+    state.plunge = steer(p, C, p.end, null);
+    revealHarden(p.quenchant);
+  }
+}
+
+function bubble(tilt) {
+  const reach = 60 + Math.random() * 60;
+  const c = el("circle", {
+    class: "bubble",
+    cx: 100 + Math.sin((-tilt * Math.PI) / 180) * reach + (Math.random() - 0.5) * 14,
+    cy: 120 + reach,
+    r: 1 + Math.random() * 2.5,
+  });
+  c.style.setProperty("--bx", `${(Math.random() - 0.5) * 20}px`);
+  $("bubbles").append(c);
+  c.addEventListener("animationend", () => c.remove());
+}
+
+function revealHarden(quenchant) {
+  const air = quenchant === "air";
+  sound.hiss(false);
+  const T = air ? htTemp(state.heat, HARDEN_TIME) : state.quenchT;
+  const stress = Math.max(...state.bar.stress);
+  const gs = state.grindScore;
+  const st = strain(STEEL, { stress, burning: state.bar.burning, thin: gs.thin, T, quenchant });
+  const cracked = !air && st.total >= CRACK;
+  const hrc = hardness(STEEL, T, quenchant);
+  const tiltMean = air ? 0 : meanTilt(state.plunge);
+  const warpMm = air ? 1.2 * gs.uneven : warp(tiltMean, gs.uneven);
+  const score = hardenScore(STEEL, { cracked, hrc, warpMm });
+  state.hardened = { quenchant, T, strain: st, cracked, hrc, warpMm, tiltMean, score };
+  state.phase = "hardened";
+  if (cracked) {
+    sound.blow("cold");
+    const f = document.createElement("div");
+    f.className = "crack-flash";
+    $("hscene").append(f);
+    f.addEventListener("animationend", () => f.remove());
+    say("Ting! It cracked", "bad", 3000);
+  } else {
+    say(air ? "Too slow: it cooled in the air" : "It held", "", 3000);
+  }
+  $("hfeedback").textContent = state.feedback.text;
+  $("hfeedback").className = `feedback ${state.feedback.kind}`;
+  setTimeout(showHardenResult, 1400);
+}
+
+// crackAt is where along the blade (a share of its length) a crack shows:
+// at the section with the most stress from the forge, or the middle.
+function crackAt() {
+  const stress = state.bar.stress;
+  const most = Math.max(...stress);
+  return most > 0 ? ((stress.indexOf(most) + 0.5) / N) * 0.92 : 0.5;
+}
+
+function showHardenResult() {
+  const h = state.hardened;
+  $("harden").hidden = true;
+  $("result").hidden = false;
+  $("result-kicker").textContent = "Hardening";
+  $("score").textContent = h.score;
+  swordSVG($("final"), state.forged.widths, state.forged.lengths, h.cracked ? { crack: crackAt() } : {});
+  const air = h.quenchant === "air";
+  const wanted = QUENCHES[STEEL.quench].name.toLowerCase();
+  const rows = [
+    ["Quenched at", air ? "never: it cooled in the air" : `${Math.round(h.T)}°C (critical ${STEEL.critical}°C)`],
+    ["Quench", air ? "air" : h.quenchant === STEEL.quench ? `${QUENCHES[h.quenchant].name} ✓` : `${QUENCHES[h.quenchant].name} (${STEEL.name} wants ${wanted})`],
+    ["Strain", `${Math.round(h.strain.total * 100)}% (cracks at 100%)`],
+    ["Cracked", h.cracked ? "yes" : "no"],
+    ["Hardness", h.cracked ? "–" : `${h.hrc.toFixed(1)} HRC of ${STEEL.hard}`],
+    ["Lean in the quench", air ? "–" : `${h.tiltMean.toFixed(1)}° on average`],
+    ["Warp", `${h.warpMm.toFixed(1)} mm`],
+    ["Forging, grinding", `${state.forgeScore.score}, ${state.grindScore.score}`],
+  ];
+  $("breakdown").innerHTML = rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("");
+  const names = { forge: "cold or glancing blows", burnt: "burnt steel", edge: "an edge ground too thin", heat: "quenching too hot", quench: "too harsh a quench" };
+  const causes = Object.entries(h.strain.parts).filter(([, v]) => v >= 0.05).sort((a, b) => b[1] - a[1]).map(([k]) => names[k]);
+  const list = (xs) => (xs.length > 1 ? `${xs.slice(0, -1).join(", ")} and ${xs.at(-1)}` : xs[0]);
+  let verdict;
+  if (air) verdict = "It never reached the quench, so it's barely harder than when it left the anvil.";
+  else if (h.cracked) verdict = `It cracked, from ${list(causes)}. On the show, that's you out.`;
+  else if (h.hrc < STEEL.hard - 3) verdict = h.T < STEEL.critical ? "It wasn't past critical, so it didn't fully harden." : "It didn't fully harden: the quench was too slow for this steel, or it went in far too hot.";
+  else verdict = causes.length ? `Hard and whole, though ${list(causes)} put strain on it.` : "Hard, whole and sound.";
+  if (!h.cracked && h.warpMm >= 1.5) verdict += ` It's come out ${h.warpMm.toFixed(1)} mm out of true.`;
+  $("verdict").textContent = verdict;
+  $("result-note").textContent = "Tempering and testing come next.";
   $("next").hidden = true;
 }
 
@@ -702,7 +931,31 @@ function setup() {
   renderBrief();
   $("start").addEventListener("click", start);
   $("again").addEventListener("click", start);
-  $("next").addEventListener("click", () => { if (state.phase === "forged") startGrind(); });
+  $("next").addEventListener("click", () => {
+    if (state.phase === "forged") startGrind();
+    else if (state.phase === "ground") startHarden();
+  });
+  $("hfire").addEventListener("pointerdown", (e) => { e.preventDefault(); htFire(e.timeStamp); });
+  $("magnet").addEventListener("pointerdown", (e) => { e.preventDefault(); useMagnet(e.timeStamp); });
+  for (const b of document.querySelectorAll(".tank")) {
+    b.addEventListener("pointerdown", (e) => { e.preventDefault(); quench(b.dataset.q, e.timeStamp); });
+  }
+  const hs = $("hscene");
+  hs.addEventListener("pointerdown", (e) => {
+    if (state.phase !== "plunge") return;
+    e.preventDefault();
+    hs.setPointerCapture(e.pointerId);
+    state.drag = { x: e.clientX, steer: state.plunge.steer };
+  });
+  hs.addEventListener("pointermove", (e) => {
+    if (state.phase !== "plunge" || !state.drag) return;
+    const w = hs.getBoundingClientRect().width;
+    const to = state.drag.steer + ((e.clientX - state.drag.x) / w) * 2 * MAX_STEER;
+    state.plunge = steer(state.plunge, C, stageTime(e.timeStamp), to);
+  });
+  const endDrag = () => { state.drag = null; };
+  hs.addEventListener("pointerup", endDrag);
+  hs.addEventListener("pointercancel", endDrag);
   $("flip").addEventListener("pointerdown", (e) => { e.preventDefault(); doFlip(e.timeStamp); });
   $("gdone").addEventListener("click", (e) => finishGrind(stageTime(e.timeStamp)));
   const gs = $("gscene");
@@ -712,12 +965,27 @@ function setup() {
   gs.addEventListener("pointercancel", (e) => holdAt(e, false));
   addEventListener("keyup", (e) => {
     if (state.phase === "grind" && e.key === " ") holdAt({ timeStamp: e.timeStamp, keyboard: true }, false);
+    if (state.phase === "plunge" && (e.key === "ArrowLeft" || e.key === "ArrowRight")) {
+      state.plunge = steer(state.plunge, C, stageTime(e.timeStamp), null, 0);
+    }
   });
   $("strike").addEventListener("pointerdown", (e) => { e.preventDefault(); doStrike(e.timeStamp); });
   $("fire").addEventListener("pointerdown", (e) => { e.preventDefault(); toggleFire(e.timeStamp); });
   $("done").addEventListener("click", (e) => finish(stageTime(e.timeStamp)));
   addEventListener("keydown", (e) => {
     if (e.repeat || e.ctrlKey || e.metaKey || e.altKey || $("help").open) return;
+    if (state.phase === "harden" || state.phase === "plunge") {
+      const k = e.key.toLowerCase();
+      if (state.phase === "plunge" && (k === "arrowleft" || k === "arrowright")) {
+        state.plunge = steer(state.plunge, C, stageTime(e.timeStamp), null, k === "arrowleft" ? -KEY_STEER : KEY_STEER);
+      } else if (state.phase !== "harden") return;
+      else if (k === "f") htFire(e.timeStamp);
+      else if (k === "m") useMagnet(e.timeStamp);
+      else if (k === "1" || k === "2" || k === "3") quench(["water", "brine", "oil"][Number(k) - 1], e.timeStamp);
+      else return;
+      e.preventDefault();
+      return;
+    }
     if (state.phase === "grind") {
       const k = e.key.toLowerCase();
       if (k === " ") holdAt({ timeStamp: e.timeStamp, keyboard: true }, true);
