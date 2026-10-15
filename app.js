@@ -12,6 +12,8 @@ import {
   HARDEN_TIME, TRANSFER, CRACK, KEY_STEER, MAX_STEER, QUENCHES, htTemp, htSetFire, magnetSticks, quenchTemp,
   newPlunge, steer, tiltAt, meanTilt, hardness, strain, warp, hardenScore,
 } from "./harden.js";
+import { TEMPER_TIME, STRIPS, CHART, temperedHardness, temperFor, oxideCSS, newTemper, torch, temperScore } from "./temper.js";
+import { trials, WEIGHTS, totalScore, verdict, square, shareText } from "./trials.js";
 
 const KEY = dayKey();
 const C = commission(KEY);
@@ -64,6 +66,10 @@ const state = {
   drag: null, // { x, steer } where a drag on the tank started
   hardened: null,
   practice: null, // the stage being practised, from a perfect blade, or null for a real go
+  tp: null, // the temper
+  torch: { down: false, x: null, at: 0 },
+  temperScore: null,
+  trials: null,
   bar: null,
   picked: 0,
   t0: 0, // performance.now() when the forge stage started
@@ -328,6 +334,7 @@ const stageTime = (stamp) => (stamp - state.t0) / 1000;
 
 function start() {
   state.practice = null;
+  for (const id of ["temper", "test"]) $(id).hidden = true;
   sound.init();
   sound.hiss(false);
   $("grind").hidden = true;
@@ -440,22 +447,33 @@ function practise(stage) {
   state.bar = bar;
   state.forged = { widths: [...bar.widths], lengths: sectionLengths(bar) };
   state.forgeScore = forgeScore(C, bar);
-  if (stage === "harden") {
+  if (stage !== "grind") {
     const cols = geometry(BLADE, state.forged.widths, state.forged.lengths, C.billet, C.stock);
     const half = cols.map((col) => (col.stock - EDGE) / 2);
     const g = { side: 1, lines: [cols.map(() => C.bevel), cols.map(() => C.bevel)], depth: [half, [...half]], flippedAt: -Infinity };
     state.grindScore = grindScore(C, g, cols);
   }
-  for (const id of ["brief", "forge", "grind", "harden", "result"]) $(id).hidden = true;
-  if (stage === "grind") startGrind();
-  else startHarden();
+  if (stage === "temper" || stage === "test") {
+    state.hardened = {
+      quenchant: STEEL.quench, T: STEEL.critical + 25, strain: { total: 0, parts: {} },
+      cracked: false, hrc: STEEL.hard, warpMm: 0, tiltMean: 0, score: 100,
+    };
+  }
+  if (stage === "test") {
+    const tp = newTemper();
+    const T = temperFor(STEEL.hard, (C.hardness[0] + C.hardness[1]) / 2);
+    state.tp = { ...tp, maxEdge: tp.maxEdge.map(() => T), maxSpine: tp.maxSpine.map(() => 300) };
+    state.temperScore = temperScore(C, state.tp, STEEL.hard);
+  }
+  for (const id of ["brief", "forge", "grind", "harden", "temper", "test", "result"]) $(id).hidden = true;
+  ({ grind: startGrind, harden: startHarden, temper: startTemper, test: startTest })[stage]();
 }
 
 // showBrief goes back to the commission, to start a real go or practise.
 function showBrief() {
   sound.hiss(false);
   state.phase = "brief";
-  for (const id of ["forge", "grind", "harden", "result"]) $(id).hidden = true;
+  for (const id of ["forge", "grind", "harden", "temper", "test", "result"]) $(id).hidden = true;
   $("brief").hidden = false;
   setStage("forge");
 }
@@ -477,6 +495,7 @@ function frame(now) {
   requestAnimationFrame(frame);
   if (state.phase === "grind") grindFrame(now);
   if (state.phase === "harden" || state.phase === "plunge") hardenFrame(now);
+  if (state.phase === "temper") temperFrame(now);
   if (state.phase !== "forge") return;
   const t = stageTime(now);
   if (t >= FORGE_TIME) {
@@ -957,8 +976,260 @@ function showHardenResult() {
   else verdict = causes.length ? `Hard and whole, though ${list(causes)} put strain on it.` : "Hard, whole and sound.";
   if (!h.cracked && h.warpMm >= 1.5) verdict += ` It's come out ${h.warpMm.toFixed(1)} mm out of true.`;
   $("verdict").textContent = verdict;
-  $("result-note").textContent = "Tempering and testing come next.";
-  $("next").hidden = true;
+  $("result-note").textContent = "Next, temper it.";
+  $("next").textContent = "To the temper";
+  $("next").hidden = false;
+}
+
+// --- Tempering
+
+const tscene = { sy: 1 };
+
+function startTemper() {
+  state.phase = "temper";
+  state.tp = newTemper();
+  state.torch = { down: false, x: null, at: 0 };
+  state.t0 = performance.now();
+  for (const id of ["result", "test"]) $(id).hidden = true;
+  $("temper").hidden = false;
+  setStage("temper");
+
+  const { widths, lengths } = state.forged;
+  const shape = outline(BLADE, widths, lengths, { ref: C.billet });
+  const L = shape.length;
+  const ys = [...shape.top, ...shape.bottom].map(([, y]) => y);
+  const minY = Math.min(...ys), maxY = Math.max(...ys);
+  tscene.L = L;
+  tscene.sy = Math.min(8, Math.max(1.5, (0.26 * L) / (maxY - minY)));
+  const sy = tscene.sy;
+  const pad = (maxY - minY) * sy * 0.25;
+  tscene.vb = { x: -L * 0.02, y: minY * sy - pad, w: L * 1.04, h: (maxY - minY) * sy + 2 * pad };
+  const svg = $("tbar");
+  svg.setAttribute("viewBox", `${tscene.vb.x} ${tscene.vb.y} ${tscene.vb.w} ${tscene.vb.h}`);
+  const d = outlinePath(shape, { sy });
+  const defs = el("defs");
+  const clip = el("clipPath", { id: "tclip" });
+  clip.append(el("path", { d }));
+  const grad = el("radialGradient", { id: "flame" });
+  grad.append(
+    el("stop", { offset: "0%", "stop-color": "#e8f0ff", "stop-opacity": "0.95" }),
+    el("stop", { offset: "35%", "stop-color": "#5a8cff", "stop-opacity": "0.7" }),
+    el("stop", { offset: "100%", "stop-color": "#2a4cff", "stop-opacity": "0" }),
+  );
+  defs.append(clip, grad);
+  const strips = el("g", { "clip-path": "url(#tclip)" });
+  // Each strip has a spine band and an edge band (two on double-edged blades).
+  const cols = geometry(BLADE, widths, lengths, C.billet, C.stock);
+  tscene.cols = cols;
+  tscene.bands = cols.map((c) => {
+    const w = L / STRIPS + 0.5;
+    const x = c.mm - L / STRIPS / 2;
+    const spineY = (c.edge - c.span) * sy;
+    const half = (c.span / 2) * sy;
+    const tall = tscene.vb.h;
+    if (BLADE.edges === 2) {
+      const edgeR = el("rect", { x, width: w, y: tscene.vb.y, height: tall });
+      const spineR = el("rect", { x, width: w, y: spineY - half, height: 2 * half });
+      strips.append(edgeR, spineR);
+      return { edge: edgeR, spine: spineR };
+    }
+    const spineR = el("rect", { x, width: w, y: tscene.vb.y, height: spineY + half - tscene.vb.y });
+    const edgeR = el("rect", { x, width: w, y: spineY + half, height: tall });
+    strips.append(spineR, edgeR);
+    return { edge: edgeR, spine: spineR };
+  });
+  tscene.flame = el("ellipse", { class: "flame", rx: L * 0.06, ry: (maxY - minY) * sy * 0.35, cx: -9999, cy: 0 });
+  tscene.spineAt = (x) => {
+    const j = Math.max(0, Math.min(STRIPS - 1, Math.floor(x * STRIPS)));
+    return (cols[j].edge - cols[j].span) * sy;
+  };
+  svg.replaceChildren(defs, strips, el("path", { class: "outline", d }), tscene.flame);
+
+  // The chart: each colour, and the hardness it leaves this blade's edge.
+  const h0 = state.hardened.hrc;
+  const [lo, hi] = C.hardness;
+  $("chart").innerHTML = CHART.map(([name, T]) => {
+    const h = temperedHardness(h0, T);
+    return `<div class="${h >= lo && h <= hi ? "in" : ""}"><i style="background:${oxideCSS(T)}"></i>${name}<b>${h.toFixed(0)}</b></div>`;
+  }).join("");
+  const cells = $("tcells");
+  cells.replaceChildren();
+  for (let i = 0; i < N; i++) {
+    const b = document.createElement("div");
+    b.className = "cell";
+    b.innerHTML = `<div class="bar"></div><span></span>`;
+    cells.append(b);
+  }
+  drawTemper(0);
+  say(`Play the torch on the spine; bring the edge to ${lo}–${hi} HRC`, "", 3000);
+}
+
+function drawTemper(t) {
+  const tp = state.tp;
+  for (let j = 0; j < STRIPS; j++) {
+    tscene.bands[j].spine.setAttribute("fill", oxideCSS(tp.maxSpine[j]));
+    tscene.bands[j].edge.setAttribute("fill", oxideCSS(tp.maxEdge[j]));
+  }
+  const h0 = state.hardened.hrc;
+  const [lo, hi] = C.hardness;
+  const per = STRIPS / N;
+  const cells = $("tcells").children;
+  for (let i = 0; i < N; i++) {
+    let sum = 0;
+    for (let j = i * per; j < (i + 1) * per; j++) sum += temperedHardness(h0, tp.maxEdge[j]);
+    const h = sum / per;
+    const cell = cells[i];
+    cell.classList.toggle("on", h >= lo - 0.05 && h <= hi + 0.05);
+    cell.classList.toggle("thin", h < lo - 0.05);
+    cell.classList.toggle("hard", h > hi + 0.05);
+    cell.querySelector("span").textContent = h.toFixed(0);
+    cell.querySelector(".bar").style.height = "100%";
+  }
+  $("treadout").textContent = `Edge hardness (HRC) by section · aim for ${lo}–${hi}`;
+  const p = state.torch;
+  if (p.down && p.x !== null) {
+    tscene.flame.setAttribute("cx", p.x * tscene.L);
+    tscene.flame.setAttribute("cy", tscene.spineAt(p.x));
+  } else {
+    tscene.flame.setAttribute("cx", -9999);
+  }
+  const hottest = Math.max(...tp.edge);
+  $("tstatus").textContent = state.torch.down ? "Torch on" : hottest > 120 ? "Colours still running" : "";
+}
+
+function torchX(e) {
+  const ctm = $("tbar").getScreenCTM();
+  if (!ctm) return null;
+  const p = new DOMPoint(e.clientX, e.clientY).matrixTransform(ctm.inverse());
+  return Math.max(0, Math.min(1, p.x / tscene.L));
+}
+
+function flushTemper(t) {
+  const p = state.torch;
+  const until = Math.min(t, TEMPER_TIME);
+  if (until > p.at) {
+    state.tp = torch(state.tp, p.at, until, p.down ? p.x : null);
+    p.at = until;
+  }
+}
+
+function torchAt(e, down) {
+  if (state.phase !== "temper") return;
+  flushTemper(stageTime(e.timeStamp));
+  if (!e.keyboard) state.torch.x = torchX(e);
+  state.torch.down = down;
+}
+
+function temperFrame(now) {
+  const t = stageTime(now);
+  if (t >= TEMPER_TIME) {
+    finishTemper(TEMPER_TIME);
+    return;
+  }
+  flushTemper(t);
+  const left = TEMPER_TIME - t;
+  $("tclock").textContent = Math.ceil(left);
+  $("ttrack").style.transform = `scaleX(${left / TEMPER_TIME})`;
+  $("temper").classList.toggle("low", left < 10);
+  drawTemper(t);
+  const fb = state.feedback;
+  const msg = $("tfeedback");
+  msg.textContent = now < fb.until ? fb.text : "";
+  msg.className = `feedback ${now < fb.until ? fb.kind : ""}`;
+}
+
+function finishTemper(t) {
+  if (state.phase !== "temper") return;
+  flushTemper(t);
+  // Let the colours finish running: what heat is left in the blade still
+  // tempers it.
+  state.tp = torch(state.tp, t, t + 8, null);
+  state.phase = "tempered";
+  const s = temperScore(C, state.tp, state.hardened.hrc);
+  state.temperScore = s;
+  $("temper").hidden = true;
+  $("result").hidden = false;
+  kicker("Tempering");
+  $("score").textContent = s.score;
+  swordSVG($("final"), state.forged.widths, state.forged.lengths, state.hardened.cracked ? { crack: crackAt() } : {});
+  const [lo, hi] = C.hardness;
+  const rows = [
+    ["Edge in the band", `${s.edge}/100`],
+    ["Edge on average", `${s.hrc.toFixed(1)} HRC (wants ${lo}–${hi})`],
+    ["Strips too hard", `${s.brittle} of ${STRIPS}`],
+    ["Strips too soft", `${s.soft} of ${STRIPS}`],
+    ["Spine toughness", `${s.spine}/100`],
+  ];
+  $("breakdown").innerHTML = rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("");
+  let v;
+  if (s.brittle >= 4 && s.soft >= 4) v = "Uneven: parts of the edge are too hard and parts too soft.";
+  else if (s.brittle >= 4) v = "Parts of the edge are still too hard, and may chip.";
+  else if (s.soft >= 4) v = "Parts of the edge went too far and are soft, and may roll.";
+  else v = s.spine >= 70 ? "A hard edge and a tough spine." : "The edge is right, though the spine could be tougher.";
+  $("verdict").textContent = v;
+  $("result-note").textContent = "Next, the tests.";
+  $("next").textContent = "To the tests";
+  $("next").hidden = false;
+}
+
+// --- The tests
+
+function startTest() {
+  state.phase = "test";
+  for (const id of ["result", "temper"]) $(id).hidden = true;
+  $("test").hidden = false;
+  $("summary").hidden = true;
+  $("test-kicker").textContent = state.practice ? "The tests · practice" : "The tests";
+  setStage("test");
+  const run = trials(C, { forge: state.forgeScore, grind: state.grindScore, harden: state.hardened, temper: state.temperScore });
+  state.trials = run;
+  const list = $("trials");
+  list.replaceChildren();
+  run.results.forEach((r, i) => {
+    setTimeout(() => {
+      if (state.phase !== "test") return;
+      const li = document.createElement("li");
+      li.innerHTML = `<h3>${r.name}</h3><span class="badge ${r.grade}">${r.score}</span><p>${r.text}</p>`;
+      list.append(li);
+      sound.blow(r.grade === "fail" ? "glancing" : "clean");
+    }, 700 + i * 1100);
+  });
+  setTimeout(() => { if (state.phase === "test") showFinal(); }, 700 + run.results.length * 1100 + 300);
+}
+
+function showFinal() {
+  const scores = {
+    forge: state.forgeScore.score,
+    grind: state.grindScore.score,
+    harden: state.hardened.score,
+    temper: state.temperScore.score,
+    test: state.trials.score,
+  };
+  state.scores = scores;
+  const total = totalScore(scores);
+  state.total = total;
+  $("summary").hidden = false;
+  $("total").textContent = total;
+  $("final-verdict").textContent = verdict(total, state.hardened.cracked);
+  $("squares").textContent = ["forge", "grind", "harden", "temper", "test"].map((k) => square(scores[k])).join(" ");
+  const names = { forge: "Forge", grind: "Grind", harden: "Harden", temper: "Temper", test: "Tests" };
+  $("stage-scores").innerHTML = Object.entries(scores)
+    .map(([k, v]) => `<dt>${names[k]} <small>(${Math.round(WEIGHTS[k] * 100)}%)</small></dt><dd>${v}</dd>`).join("");
+  $("share").hidden = !!state.practice;
+  $("toast").textContent = state.practice ? "Practice runs aren't for sharing." : "";
+}
+
+async function share() {
+  const text = shareText(C.number, state.total, state.scores, location.origin + location.pathname);
+  try {
+    if (navigator.share && matchMedia("(pointer: coarse)").matches) await navigator.share({ text });
+    else {
+      await navigator.clipboard.writeText(text);
+      $("toast").textContent = "Copied to the clipboard";
+    }
+  } catch {
+    $("toast").textContent = "Couldn't share; here it is: " + text.replace(/\n/g, " ");
+  }
 }
 
 // --- Input
@@ -967,12 +1238,22 @@ function setup() {
   renderBrief();
   $("start").addEventListener("click", start);
   $("again").addEventListener("click", showBrief);
+  $("test-again").addEventListener("click", showBrief);
+  $("share").addEventListener("click", share);
+  $("tdone").addEventListener("click", (e) => finishTemper(stageTime(e.timeStamp)));
+  const ts = $("tscene");
+  ts.addEventListener("pointerdown", (e) => { e.preventDefault(); ts.setPointerCapture(e.pointerId); torchAt(e, true); });
+  ts.addEventListener("pointermove", (e) => torchAt(e, state.torch.down));
+  ts.addEventListener("pointerup", (e) => torchAt(e, false));
+  ts.addEventListener("pointercancel", (e) => torchAt(e, false));
   for (const b of document.querySelectorAll("[data-practise]")) {
     b.addEventListener("click", () => practise(b.dataset.practise));
   }
   $("next").addEventListener("click", () => {
     if (state.phase === "forged") startGrind();
     else if (state.phase === "ground") startHarden();
+    else if (state.phase === "hardened") startTemper();
+    else if (state.phase === "tempered") startTest();
   });
   $("hfire").addEventListener("pointerdown", (e) => { e.preventDefault(); htFire(e.timeStamp); });
   $("magnet").addEventListener("pointerdown", (e) => { e.preventDefault(); useMagnet(e.timeStamp); });
@@ -1004,6 +1285,7 @@ function setup() {
   gs.addEventListener("pointercancel", (e) => holdAt(e, false));
   addEventListener("keyup", (e) => {
     if (state.phase === "grind" && e.key === " ") holdAt({ timeStamp: e.timeStamp, keyboard: true }, false);
+    if (state.phase === "temper" && e.key === " ") torchAt({ timeStamp: e.timeStamp, keyboard: true }, false);
     if (state.phase === "plunge" && (e.key === "ArrowLeft" || e.key === "ArrowRight")) {
       state.plunge = steer(state.plunge, C, stageTime(e.timeStamp), null, 0);
     }
@@ -1013,6 +1295,12 @@ function setup() {
   $("done").addEventListener("click", (e) => finish(stageTime(e.timeStamp)));
   addEventListener("keydown", (e) => {
     if (e.repeat || e.ctrlKey || e.metaKey || e.altKey || $("help").open) return;
+    if (state.phase === "temper") {
+      if (e.key !== " ") return;
+      torchAt({ timeStamp: e.timeStamp, keyboard: true }, true);
+      e.preventDefault();
+      return;
+    }
     if (state.phase === "harden" || state.phase === "plunge") {
       const k = e.key.toLowerCase();
       if (state.phase === "plunge" && (k === "arrowleft" || k === "arrowright")) {

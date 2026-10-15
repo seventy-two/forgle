@@ -6,7 +6,7 @@ on Forged in Fire, with some of the busy heat management of RuneScape's
 Giants' Foundry. Then the blade is tested: paper, a hardwood post, rope, and
 a bend. No meat.
 
-So far the forge, the grind and the harden stages are built.
+All five stages are built. The one-go-a-day lock and stats are still to come.
 
 The commission card can also skip to a stage for practice, with a perfect
 blade up to it: forged exactly to the commission, and ground to the line
@@ -71,6 +71,32 @@ with an even 1 mm edge.
 - 35 seconds to get it into the quench, or it cools in the air (30 HRC).
   Score: 0 if cracked, otherwise 55% hardness, 45% warp (4 mm loses it all).
 
+## Temper
+
+- The blade is split into 40 strips, each with a spine and an edge
+  temperature. Press and hold to play the torch on the spine (200°C/s at
+  its centre, reaching about 7% of the length either way); heat soaks to
+  the edge (rate 0.6/s), along the blade, and away into the air, so the
+  edge lags the spine and keeps heating after the torch moves on. The
+  stage runs on for 8s after it ends to let the colours finish running.
+- Each strip keeps the oxide colour of the hottest it got, and that
+  temperature sets how much hardness the edge gives up (1.5 HRC by 175°C,
+  5.5 by 225°C, 11 by 300°C…). The chart shows the hardness each colour
+  leaves this blade, from its as-quenched hardness.
+- 45 seconds. 80% for each strip's edge in the commission's band (a
+  quarter lost per HRC outside it), 20% for the spine reaching purple
+  (265°C).
+
+## Test
+
+No meat. Measurements (the forge score), paper (grind edge and line),
+hardwood post (temper, less warp past 1 mm; too hard chips, too soft
+rolls, cracked snaps), rope coil (profile and edge), and bend (cracked or
+too hard without a tough spine snaps, too soft takes a set). The test
+score is their average; the overall score is forge 25%, grind 15%, harden
+20%, temper 15%, tests 25%, with a verdict ("It will kill." from 90) and
+a line of squares to share.
+
 ## How it works
 
 It's a static page with no server.
@@ -88,6 +114,8 @@ It's a static page with no server.
   depend on how often the page updates.
 - `harden.js`: heating, the magnet, the plunge (the tilt is summed on the
   same kind of fixed grid), hardness, strain and warp.
+- `temper.js`: the torch's heat model, oxide colours and tempered
+  hardness. `trials.js`: the tests, the overall score and the share text.
 - `app.js` draws it and handles input.
 
 ## Running

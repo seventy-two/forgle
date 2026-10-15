@@ -40,6 +40,8 @@
     <p class="practise">Practise a stage with a perfect blade up to it:
       <button type="button" data-practise="grind">Grind</button>
       <button type="button" data-practise="harden">Harden</button>
+      <button type="button" data-practise="temper">Temper</button>
+      <button type="button" data-practise="test">Test</button>
     </p>
   </section>
 
@@ -130,6 +132,39 @@
     <p class="readout" id="plunge-hint" hidden>Drag sideways (or ← →) to keep the tip on the line</p>
   </section>
 
+  <section class="stage" id="temper" hidden aria-label="Temper">
+    <div class="clock-row">
+      <div class="clock"><span id="tclock">45</span><small>s</small></div>
+      <div class="track"><div class="fill" id="ttrack"></div></div>
+    </div>
+
+    <div class="scene torch" id="tscene">
+      <svg id="tbar" aria-label="The blade under the torch"></svg>
+      <p class="feedback" id="tfeedback" aria-live="polite"></p>
+      <p class="side" id="tstatus"></p>
+    </div>
+
+    <div class="chart" id="chart" aria-label="Temper colours"></div>
+    <div class="cells" id="tcells" aria-label="Edge hardness by section"></div>
+    <p class="readout" id="treadout"></p>
+    <button type="button" class="primary wide" id="tdone">Finished tempering</button>
+  </section>
+
+  <section class="result" id="test" hidden aria-live="polite">
+    <p class="kicker" id="test-kicker">The tests</p>
+    <ol class="trials" id="trials"></ol>
+    <div id="summary" hidden>
+      <p class="kicker">Overall</p>
+      <p class="score"><span id="total"></span><small>/100</small></p>
+      <p class="verdict big" id="final-verdict"></p>
+      <p class="squares" id="squares" aria-hidden="true"></p>
+      <dl class="breakdown" id="stage-scores"></dl>
+      <button type="button" class="primary" id="share">Share result</button>
+      <p class="toast" id="toast" role="status"></p>
+      <button type="button" class="link" id="test-again">Back to the commission</button>
+    </div>
+  </section>
+
   <section class="result" id="result" hidden aria-live="polite">
     <p class="kicker" id="result-kicker">Forging</p>
     <p class="score"><span id="score"></span><small>/100</small></p>
@@ -168,6 +203,15 @@
     <li>Then you find out whether it cracked. Cold blows in the forge, burnt steel, edges ground too thin, quenching too hot and the wrong quench all add strain.</li>
     <li>You have <strong>35 seconds</strong> to get it into the quench, or it cools in the air.</li>
   </ol>
+  <h3>Temper</h3>
+  <ol>
+    <li>Quenched steel is hard but brittle. <strong>Press and hold on the blade to play the torch on its spine</strong>, and drag along it. The heat soaks down to the edge a moment later, and keeps going after you move on.</li>
+    <li>The steel colours as it heats and keeps the colour of the hottest it got. <strong>The edge's colour sets its hardness</strong>: the chart shows what each colour gives this blade. Get every section's edge into the commission's hardness (<span class="good">green</span>). Too hard chips; too soft rolls.</li>
+    <li>A spine taken to purple or blue makes the blade tough, which helps in the bend test.</li>
+    <li>You have <strong>45 seconds</strong>.</li>
+  </ol>
+  <h3>Test</h3>
+  <p>The blade is measured, then cuts paper, chops a hardwood post, cuts a coil of rope and is bent. How it does follows from how you made it.</p>
   <form method="dialog"><button class="primary">To the anvil</button></form>
 </dialog>
 </body>
