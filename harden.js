@@ -11,9 +11,10 @@ export const HT_FIRE = 900; // the heat-treat forge runs cooler than the forging
 export const HT_TAU = 4; // seconds
 export const TRANSFER = 0.6; // seconds from the fire to the quench, cooling in the air
 export const GOOD_OVER = 50; // up to this far past critical is just right
-export const TILT = 14; // degrees: how hard the quench rocks the blade
+export const TILT = 9; // degrees: how hard the quench rocks the blade
 export const MAX_STEER = 45; // degrees either way the player can lean it
-export const KEY_STEER = 50; // degrees per second with the arrow keys
+export const KEY_STEER = 30; // degrees per second with the arrow keys
+export const DRAG_STEER = 60; // degrees of lean for a drag across the whole tank
 export const CRACK = 1; // strain at which the blade cracks
 export const DT = 0.005; // the sampling grid, in seconds
 export const AIR_HARDNESS = 30; // HRC: what steel cooled in the air ends up
@@ -133,7 +134,7 @@ export function strain(steel, { stress, burning, thin, T, quenchant }) {
 // warp is how far (mm) the blade bends out of true: from tilting in the
 // quench, and from sides ground unevenly.
 export function warp(mean, uneven) {
-  return 0.33 * mean + 1.2 * uneven;
+  return 0.25 * mean + 1.2 * uneven;
 }
 
 const clamp01 = (x) => Math.max(0, Math.min(1, x));

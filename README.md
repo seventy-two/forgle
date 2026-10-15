@@ -60,9 +60,9 @@ with an even 1 mm edge.
   steel's note on the commission says what it wants. Oil steels in water or
   brine take a shock that nearly doubles everything else; W2 in oil comes
   out 7 HRC soft.
-- The quench rocks the blade (a few slow waves, different each day) for 4s
+- The quench rocks the blade (a few slow waves, different each day; up to about 15°) for 4s
   in oil or 2.5s in water or brine. Drag sideways (or ← →) to keep it
-  upright. The average lean (0.33 mm a degree) plus uneven grinding
+  upright. The average lean (0.25 mm a degree) plus uneven grinding
   (1.2 mm per mm) is the warp.
 - Strain adds up the forge's worst section stress, seconds spent burning,
   edge strips ground under 0.6 mm, going in more than 50°C past critical,

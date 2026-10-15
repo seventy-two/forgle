@@ -272,3 +272,7 @@ dialog .primary { width: 100%; }
 .squares { font-size: 24px; letter-spacing: 4px; margin: 4px 0 0; }
 .toast { min-height: 20px; font-size: 13px; color: var(--ink-2); text-align: center; margin: 6px 0 0; }
 #summary .primary { width: 100%; }
+
+.meter.lean { margin: 12px 0 0; height: 26px; }
+.meter.lean .sweet { left: 45%; width: 10%; }
+.meter.lean.true .marker { background: var(--good); }

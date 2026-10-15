@@ -9,7 +9,7 @@ import {
   GRIND_TIME, COLUMNS, BELT, EDGE, EDGE_OK, FLIP_TIME, beltAt, geometry, newGrind, edgeLeft, grind, flip, grindScore,
 } from "./grind.js";
 import {
-  HARDEN_TIME, TRANSFER, CRACK, KEY_STEER, MAX_STEER, QUENCHES, htTemp, htSetFire, magnetSticks, quenchTemp,
+  HARDEN_TIME, TRANSFER, CRACK, KEY_STEER, DRAG_STEER, QUENCHES, htTemp, htSetFire, magnetSticks, quenchTemp,
   newPlunge, steer, tiltAt, meanTilt, hardness, strain, warp, hardenScore,
 } from "./harden.js";
 import { TEMPER_TIME, STRIPS, CHART, temperedHardness, temperFor, oxideCSS, newTemper, torch, temperScore } from "./temper.js";
@@ -886,6 +886,9 @@ function hardenFrame(now) {
   const cool = Math.max(0, Math.min(1, (t - p.start) / (p.end - p.start)));
   $("pblade").style.setProperty("--glow", glowCSS(state.quenchT - cool * 700 - (t < p.start ? 0 : 150)));
   $("hstatus").textContent = t < p.start ? "" : `${Math.abs(tilt).toFixed(0)}° off upright`;
+  // The lean gauge: the marker shows which way the tip has gone, out to 20°.
+  $("lean-marker").style.left = `${50 + Math.max(-1, Math.min(1, tilt / 20)) * 50}%`;
+  $("lean").classList.toggle("true", Math.abs(tilt) < 2);
   const left = Math.max(0, p.end - t);
   $("hclock").textContent = left.toFixed(1);
   $("htrack").style.transform = `scaleX(${left / QUENCHES[p.quenchant].time})`;
@@ -1270,7 +1273,7 @@ function setup() {
   hs.addEventListener("pointermove", (e) => {
     if (state.phase !== "plunge" || !state.drag) return;
     const w = hs.getBoundingClientRect().width;
-    const to = state.drag.steer + ((e.clientX - state.drag.x) / w) * 2 * MAX_STEER;
+    const to = state.drag.steer + ((e.clientX - state.drag.x) / w) * DRAG_STEER;
     state.plunge = steer(state.plunge, C, stageTime(e.timeStamp), to);
   });
   const endDrag = () => { state.drag = null; };

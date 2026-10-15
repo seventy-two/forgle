@@ -129,7 +129,10 @@
         <button type="button" class="secondary tank oil" data-q="oil">Oil<kbd>3</kbd></button>
       </div>
     </div>
-    <p class="readout" id="plunge-hint" hidden>Drag sideways (or ← →) to keep the tip on the line</p>
+    <div id="plunge-hint" hidden>
+      <div class="meter lean" id="lean" aria-hidden="true"><div class="sweet"></div><div class="marker" id="lean-marker"></div></div>
+      <p class="readout">Drag sideways (or ← →) to keep it centred</p>
+    </div>
   </section>
 
   <section class="stage" id="temper" hidden aria-label="Temper">

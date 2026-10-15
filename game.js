@@ -87,7 +87,7 @@ export function commission(key) {
   const wobble = [0.3, 0.7, 1.5].map((f, i) => ({
     f: Number((f * between(rand, [0.8, 1.25])).toFixed(3)),
     phase: Number((rand() * 2 * Math.PI).toFixed(3)),
-    amp: [1, 0.45, 0.15][i],
+    amp: [1, 0.35, 0.06][i],
     sign: rand() < 0.5 ? -1 : 1,
   }));
 
