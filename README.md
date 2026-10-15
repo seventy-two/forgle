@@ -41,7 +41,7 @@ with an even 1 mm edge.
   are ground on both edges at once).
 - The belt runs back and forth along the blade by itself (2.2s end to end).
   Press and hold on the blade to grind at that height, or on a keyboard
-  move the height with ↑ ↓ (or W S, 0.35 of the blade's width a second)
+  move the height with ↑ ↓ (or W S, 0.8 of the blade's width a second)
   and hold Space. The grind line only goes up.
 - Every moment under the belt also takes 2.4 mm/s off that side's edge. The
   edge comes off the anvil between 2.9 and 4.5 mm thick, varying along the

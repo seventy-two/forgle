@@ -693,7 +693,7 @@ function flushGrind(t) {
 }
 
 // The arrow keys move the hold up and down at KEY_HEIGHT spans a second.
-const KEY_HEIGHT = 0.35;
+const KEY_HEIGHT = 0.8;
 
 // heightBounds is how far the hold can go: from the spine (or the far edge)
 // to just below the edge.
