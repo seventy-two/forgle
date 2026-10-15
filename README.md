@@ -8,6 +8,10 @@ a bend. No meat.
 
 So far the forge, the grind and the harden stages are built.
 
+The commission card can also skip to a stage for practice, with a perfect
+blade up to it: forged exactly to the commission, and ground to the line
+with an even 1 mm edge.
+
 ## The forge
 
 - The billet starts as a plain bar, a quarter wider than the blade's widest

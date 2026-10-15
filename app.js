@@ -63,6 +63,7 @@ const state = {
   plunge: null, // the quench, once it's in
   drag: null, // { x, steer } where a drag on the tank started
   hardened: null,
+  practice: null, // the stage being practised, from a perfect blade, or null for a real go
   bar: null,
   picked: 0,
   t0: 0, // performance.now() when the forge stage started
@@ -326,6 +327,7 @@ function say(text, kind = "", ms = 1200) {
 const stageTime = (stamp) => (stamp - state.t0) / 1000;
 
 function start() {
+  state.practice = null;
   sound.init();
   sound.hiss(false);
   $("grind").hidden = true;
@@ -400,7 +402,7 @@ function showResult() {
   state.phase = "forged";
   $("forge").hidden = true;
   $("result").hidden = false;
-  $("result-kicker").textContent = "Forging";
+  kicker("Forging");
   $("result-note").textContent = "Next, grind the bevels.";
   $("next").textContent = "To the grinder";
   $("next").hidden = false;
@@ -422,6 +424,40 @@ function showResult() {
   if (bar.cold) worries.push(`${bar.cold} cold blow${bar.cold > 1 ? "s" : ""}: that may crack in the quench`);
   if (bar.burning > 0.5) worries.push("burnt steel: coarse grain and scale");
   $("verdict").textContent = worries.length ? `Watch out for ${worries.join(", and ")}.` : "No cold blows and nothing burnt: it should survive the quench.";
+}
+
+function kicker(text) {
+  $("result-kicker").textContent = state.practice ? `${text} · practice` : text;
+}
+
+// practise skips to a stage with a perfect blade up to it: forged exactly
+// to the commission, and ground to the line with an even 1 mm edge.
+function practise(stage) {
+  sound.init();
+  sound.hiss(false);
+  state.practice = stage;
+  const bar = { ...newBar(C, STEEL), widths: [...C.widths] };
+  state.bar = bar;
+  state.forged = { widths: [...bar.widths], lengths: sectionLengths(bar) };
+  state.forgeScore = forgeScore(C, bar);
+  if (stage === "harden") {
+    const cols = geometry(BLADE, state.forged.widths, state.forged.lengths, C.billet, C.stock);
+    const half = cols.map((col) => (col.stock - EDGE) / 2);
+    const g = { side: 1, lines: [cols.map(() => C.bevel), cols.map(() => C.bevel)], depth: [half, [...half]], flippedAt: -Infinity };
+    state.grindScore = grindScore(C, g, cols);
+  }
+  for (const id of ["brief", "forge", "grind", "harden", "result"]) $(id).hidden = true;
+  if (stage === "grind") startGrind();
+  else startHarden();
+}
+
+// showBrief goes back to the commission, to start a real go or practise.
+function showBrief() {
+  sound.hiss(false);
+  state.phase = "brief";
+  for (const id of ["forge", "grind", "harden", "result"]) $(id).hidden = true;
+  $("brief").hidden = false;
+  setStage("forge");
 }
 
 function setStage(id) {
@@ -696,7 +732,7 @@ function finishGrind(t) {
   const s = grindScore(C, g, state.cols);
   $("grind").hidden = true;
   $("result").hidden = false;
-  $("result-kicker").textContent = "Grinding";
+  kicker("Grinding");
   $("score").textContent = s.score;
   swordSVG($("final"), state.forged.widths, state.forged.lengths, { target: true });
   const rows = [
@@ -895,7 +931,7 @@ function showHardenResult() {
   const h = state.hardened;
   $("harden").hidden = true;
   $("result").hidden = false;
-  $("result-kicker").textContent = "Hardening";
+  kicker("Hardening");
   $("score").textContent = h.score;
   swordSVG($("final"), state.forged.widths, state.forged.lengths, h.cracked ? { crack: crackAt() } : {});
   const air = h.quenchant === "air";
@@ -930,7 +966,10 @@ function showHardenResult() {
 function setup() {
   renderBrief();
   $("start").addEventListener("click", start);
-  $("again").addEventListener("click", start);
+  $("again").addEventListener("click", showBrief);
+  for (const b of document.querySelectorAll("[data-practise]")) {
+    b.addEventListener("click", () => practise(b.dataset.practise));
+  }
   $("next").addEventListener("click", () => {
     if (state.phase === "forged") startGrind();
     else if (state.phase === "ground") startHarden();

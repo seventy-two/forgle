@@ -236,3 +236,9 @@ dialog .primary { width: 100%; }
 .controls + .readout { margin-top: 12px; }
 #hfire.active { background: var(--ember); color: #fff; box-shadow: none; }
 .sword .crack { fill: none; stroke: var(--bad); stroke-width: 2; vector-effect: non-scaling-stroke; }
+
+.practise { margin: 14px 0 0; font-size: 13px; color: var(--ink-2); text-align: center; }
+.practise button {
+  border: 0; background: var(--page); color: var(--ink); box-shadow: 0 0 0 1px var(--ring);
+  border-radius: 999px; padding: 4px 12px; margin: 6px 2px 0; font-size: 13px; font-weight: 600;
+}
