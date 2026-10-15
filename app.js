@@ -1272,6 +1272,11 @@ function showFinal() {
   $("stage-scores").innerHTML = Object.entries(scores)
     .map(([k, v]) => `<dt>${names[k]} <small>(${Math.round(WEIGHTS[k] * 100)}%)</small></dt><dd>${v}</dd>`).join("");
   $("share").hidden = !!state.practice;
+  // Tell the server a real game was finished (it only counts players;
+  // nothing about the game is sent).
+  if (!state.practice) {
+    try { navigator.sendBeacon("/beacon/forgle/done"); } catch { /* not counted, no matter */ }
+  }
   $("toast").textContent = state.practice ? "Practice runs aren't for sharing." : "";
 }
 
