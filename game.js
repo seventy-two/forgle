@@ -9,6 +9,9 @@ export const SECTIONS = 8; // the blade is forged a section at a time
 export const BILLET_SCALE = 1.25; // the billet starts this much wider than the blade's widest section
 export const STOCK = [2.9, 4.5]; // mm: the range of the edge's thickness off the anvil
 export const FIRST_DAY = "2026-10-15"; // Forgle #1
+// SEED salts the daily draws. It was "forgle" until a day in, when #1 was
+// redrawn (from a seax to a gladius) before launch.
+const SEED = "forgle5";
 
 // mulberry32: a small, fast seeded PRNG.
 function mulberry32(seed) {
@@ -58,7 +61,7 @@ export function dayNumber(key) {
 export function bladeForDay(key) {
   const n = dayNumber(key) - 1;
   const cycle = Math.floor(n / BLADES.length);
-  const order = shuffle(BLADES, mulberry32(hash("forgle:cycle:" + cycle)));
+  const order = shuffle(BLADES, mulberry32(hash(SEED + ":cycle:" + cycle)));
   return order[((n % BLADES.length) + BLADES.length) % BLADES.length];
 }
 
@@ -67,7 +70,7 @@ export function bladeForDay(key) {
 // grind (bevel height, and the edge's thickness per section before it), how
 // the quench rocks it, and the hardness it must be tempered to.
 export function commission(key) {
-  const rand = mulberry32(hash("forgle:" + key));
+  const rand = mulberry32(hash(SEED + ":" + key));
   const blade = bladeForDay(key);
   const steels = blade.steels || STEELS.map((s) => s.id);
   const steel = steels[Math.floor(rand() * steels.length)];
