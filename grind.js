@@ -12,7 +12,8 @@ export const SWEEP = 2.2; // seconds for the belt to run from one end of the bla
 export const BELT = 0.08; // how much of the blade's length the belt covers at once
 export const RATE = 2.4; // mm of edge ground away per second under the belt, per side
 export const EDGE = 1.0; // mm: the edge to leave before the quench
-export const EDGE_OK = 0.2; // mm either side of it that's fine
+export const EDGE_OK = 0.3; // mm either side of it that's fine
+export const SIDE_OK = EDGE_OK / 2; // and for each side's share
 export const THIN = 0.6; // mm: thinner than this and the edge may crack in the quench
 export const FLIP_TIME = 0.8; // seconds to turn the blade over
 export const DT = 0.005; // the sampling grid, in seconds
@@ -63,6 +64,12 @@ export function newGrind() {
     depth: [Array(COLUMNS).fill(0), Array(COLUMNS).fill(0)], // mm ground off each side's edge
     flippedAt: -Infinity,
   };
+}
+
+// sideLeft is how much is still to grind off one side of strip j: each
+// side takes half of what has to come off, so the two stay even.
+export function sideLeft(g, cols, j, side) {
+  return (cols[j].stock - EDGE) / 2 - g.depth[side][j];
 }
 
 // edgeLeft is how thick strip j's edge is now.

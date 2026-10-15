@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   COLUMNS, SWEEP, BELT, OVERRUN, RATE, EDGE, FLIP_TIME, DT,
-  beltAt, heightAt, geometry, newGrind, edgeLeft, grind, flip, grindScore,
+  beltAt, heightAt, geometry, newGrind, sideLeft, edgeLeft, grind, flip, grindScore,
 } from "../grind.js";
 import { commission, dayKey, STOCK } from "../game.js";
 import { bladeById } from "../blades.js";
@@ -131,4 +131,14 @@ test("a hold moving on the arrow keys is the same however the time is split, and
   // Moving up grinds higher than holding still.
   const still = grind(newGrind(), cols, 0.02, 3.1, y);
   assert.ok(Math.max(...once.lines[0]) > Math.max(...still.lines[0]));
+});
+
+test("each side's target is half of what has to come off, so two done sides leave the edge", () => {
+  const g = newGrind();
+  for (let j = 0; j < COLUMNS; j++) {
+    assert.ok(Math.abs(sideLeft(g, cols, j, 0) * 2 - (cols[j].stock - EDGE)) < 1e-9);
+    g.depth[0][j] = g.depth[1][j] = (cols[j].stock - EDGE) / 2;
+    assert.ok(Math.abs(sideLeft(g, cols, j, 0)) < 1e-9 && Math.abs(sideLeft(g, cols, j, 1)) < 1e-9);
+    assert.ok(Math.abs(edgeLeft(g, cols, j) - EDGE) < 1e-9);
+  }
 });

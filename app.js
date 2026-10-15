@@ -7,7 +7,7 @@ import {
 import { glowCSS, glowStrength, colourName } from "./glow.js";
 import { hilt } from "./hilts.js";
 import {
-  GRIND_TIME, COLUMNS, BELT, EDGE, EDGE_OK, FLIP_TIME, beltAt, heightAt, geometry, newGrind, edgeLeft, grind, flip, grindScore,
+  GRIND_TIME, COLUMNS, BELT, EDGE, SIDE_OK, FLIP_TIME, beltAt, heightAt, geometry, newGrind, sideLeft, grind, flip, grindScore,
 } from "./grind.js";
 import {
   HARDEN_TIME, TRANSFER, CRACK, KEY_STEER, DRAG_STEER, QUENCHES, htTemp, htSetFire, magnetSticks, quenchTemp,
@@ -626,23 +626,31 @@ function drawGrind(t) {
   gscene.other.setAttribute("d", linePath(g.lines[1 - side]));
   $("side").textContent = side === 0 ? "First side" : "Second side";
 
-  // Each section's edge, from the strips in it.
+  // Each section's share left to grind off this side, from the strips in
+  // it: green once this side's half is done.
   const per = COLUMNS / N;
   const cells = $("gcells").children;
+  const left = (i, s) => {
+    let sum = 0, full = 0;
+    for (let j = i * per; j < (i + 1) * per; j++) {
+      sum += sideLeft(g, state.cols, j, s);
+      full += (state.cols[j].stock - EDGE) / 2;
+    }
+    return [sum / per, full / per];
+  };
+  let otherDone = 0;
   for (let i = 0; i < N; i++) {
-    let sum = 0;
-    for (let j = i * per; j < (i + 1) * per; j++) sum += edgeLeft(g, state.cols, j);
-    const e = sum / per;
+    const [l, full] = left(i, side);
     const cell = cells[i];
-    const on = Math.abs(e - EDGE) <= EDGE_OK;
-    const thin = e < EDGE - EDGE_OK;
+    const on = Math.abs(l) <= SIDE_OK;
+    const thin = l < -SIDE_OK;
     cell.classList.toggle("on", on);
     cell.classList.toggle("thin", thin);
-    cell.querySelector("span").textContent = e.toFixed(1);
-    cell.querySelector(".bar").style.height = on || thin ? "100%" : `${Math.min(1, (e - EDGE) / 3) * 100}%`;
+    cell.querySelector("span").textContent = on ? "✓" : thin ? `−${(-l).toFixed(1)}` : l.toFixed(1);
+    cell.querySelector(".bar").style.height = on || thin ? "100%" : `${Math.min(1, l / full) * 100}%`;
+    if (Math.abs(left(i, 1 - side)[0]) <= SIDE_OK) otherDone++;
   }
-  const off = (k) => (g.depth[k].reduce((a, b) => a + b, 0) / COLUMNS).toFixed(2);
-  $("greadout").textContent = `Edge (mm), aim for ${EDGE.toFixed(1)} · ground off ${off(0)} | ${off(1)} mm`;
+  $("greadout").textContent = `mm left to grind off this side · other side: ${otherDone}/${N} done`;
 
   const u = beltAt(t);
   gscene.belt.setAttribute("x", (u - BELT / 2) * gscene.L);

@@ -45,7 +45,10 @@ with an even 1 mm edge.
   and hold Space. The grind line only goes up.
 - Every moment under the belt also takes 2.4 mm/s off that side's edge. The
   edge comes off the anvil between 2.9 and 4.5 mm thick, varying along the
-  blade each day; the target is 1 mm (±0.2). Flip (F) for the other side.
+  blade each day; the target is 1 mm (±0.3). Each side takes half of what
+  has to come off, and the boxes show what's left on the current side
+  (✓ within ±0.15 mm), so two green sides make an even, right edge. Flip
+  (F) for the other side.
 - 40 seconds for both sides. 60% for the lines, weighted by the blade's
   width so the point counts little, and 40% for the edge. Strips under
   0.6 mm and unevenly ground sides are kept for the quench.
