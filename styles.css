@@ -89,12 +89,23 @@ h1 { font-size: clamp(1.6rem, 6vw, 2rem); line-height: 1; margin: 0; letter-spac
 }
 .brief h2 { margin: 6px 0 0; font-size: 1.4rem; line-height: 1.2; letter-spacing: -0.03em; font-weight: 400; }
 .sword { display: block; width: 100%; height: auto; margin: 14px 0 6px; overflow: visible; }
-.sword .steel { fill: #c9ccd1; stroke: #5d6168; stroke-width: 1; }
-.sword .hilt { fill: #5a3b26; }
-.sword .fitting { fill: #8c8f94; }
+.sword .steel { fill: #c9ccd1; stroke: #5d6168; stroke-width: 1; vector-effect: non-scaling-stroke; }
+.sword .hilt { fill: #4a3022; }
+.sword .wood { fill: #7a5536; }
+.sword .fitting { fill: #9a9da2; stroke: #5d6168; stroke-width: 1; vector-effect: non-scaling-stroke; }
+.sword .brass { fill: #b8913f; stroke: #7a5f24; stroke-width: 1; vector-effect: non-scaling-stroke; }
+.sword .iron { fill: #3b3a38; stroke: #1f1e1d; stroke-width: 1; vector-effect: non-scaling-stroke; }
+.sword .hilt, .sword .wood { stroke: rgba(0, 0, 0, 0.35); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.sword .wrap { fill: none; stroke: rgba(0, 0, 0, 0.4); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+.sword .rib { fill: none; stroke: rgba(0, 0, 0, 0.35); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.sword .ito { fill: none; stroke: #23232a; stroke-width: 3; vector-effect: non-scaling-stroke; }
 @media (prefers-color-scheme: dark) {
   .sword .steel { fill: #b9bdc3; stroke: #e2e4e7; }
-  .sword .hilt { fill: #7a5236; }
+  .sword .hilt { fill: #6a4630; }
+  .sword .wood { fill: #8f6640; }
+  .sword .fitting { fill: #a7aaaf; stroke: #d9dbde; }
+  .sword .iron { fill: #4a4946; stroke: #77746f; }
+  .sword .ito { stroke: #15151a; }
 }
 .about { margin: 4px 0 0; color: var(--ink-2); font-size: 0.9rem; }
 .spec { display: grid; grid-template-columns: auto 1fr; gap: 8px 16px; margin: 16px 0 18px; padding-top: 14px; border-top: 1px solid var(--line); font-size: 0.9rem; }
@@ -261,11 +272,15 @@ dialog .primary { width: 100%; }
 #hfire.active { background: var(--ember); border-color: var(--ember); color: #fff; }
 .sword .crack { fill: none; stroke: var(--bad); stroke-width: 2; vector-effect: non-scaling-stroke; }
 
-.practise { margin: 16px 0 0; padding-top: 14px; border-top: 1px solid var(--line); font-size: 0.8rem; color: var(--muted); text-align: center; }
-.practise button {
-  border: 1px solid var(--line-strong); background: var(--page); color: var(--ink);
-  border-radius: 2px; padding: 6px 12px; margin: 8px 1px 0; font-size: 0.68rem; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase;
+.practise {
+  display: flex; align-items: center; gap: 4px; margin: 16px 0 0; padding-top: 14px; border-top: 1px solid var(--line);
+  color: var(--muted); font-size: 0.66rem; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; white-space: nowrap;
 }
+.practise button {
+  flex: 1; min-width: 0; border: 1px solid var(--line-strong); background: var(--page); color: var(--ink);
+  border-radius: 2px; padding: 6px 4px; font-size: 0.66rem; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase;
+}
+.practise button:first-of-type { margin-left: 6px; }
 .practise button:hover { border-color: var(--ember); }
 
 /* Tempering */
@@ -301,3 +316,8 @@ dialog .primary { width: 100%; }
 .meter.lean { margin: 12px 0 0; height: 24px; }
 .meter.lean .sweet { left: 45%; width: 10%; }
 .meter.lean.true .marker { background: var(--good); }
+@media (max-width: 360px) {
+  .practise { gap: 3px; letter-spacing: 0.06em; }
+  .practise button { padding: 6px 2px; letter-spacing: 0.02em; }
+  .practise button:first-of-type { margin-left: 3px; }
+}

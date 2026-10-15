@@ -116,6 +116,7 @@ It's a static page with no server.
   same kind of fixed grid), hardness, strain and warp.
 - `temper.js`: the torch's heat model, oxide colours and tempered
   hardness. `trials.js`: the tests, the overall score and the share text.
+- `hilts.js`: the hilt drawn on the commission card for each blade.
 - `app.js` draws it and handles input.
 
 ## Running

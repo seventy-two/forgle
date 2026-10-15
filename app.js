@@ -5,6 +5,7 @@ import {
   FORGE_TIME, SWEET, SPAN, newBar, advance, setFire, strike, tempAt, markerAt, sectionLengths,
 } from "./forge.js";
 import { glowCSS, glowStrength, colourName } from "./glow.js";
+import { hilt } from "./hilts.js";
 import {
   GRIND_TIME, COLUMNS, BELT, EDGE, EDGE_OK, FLIP_TIME, beltAt, geometry, newGrind, edgeLeft, grind, flip, grindScore,
 } from "./grind.js";
@@ -23,18 +24,6 @@ const N = C.widths.length;
 const HELP_STORE = "forgle:seen-help";
 const SOUND_STORE = "forgle:sound";
 
-// How each blade's hilt is drawn on the commission card: the grip's length
-// as a share of the blade's, and the guard's height as a multiple of its
-// width. Only for show.
-const HILTS = {
-  gladius: { grip: 0.2, guard: 1.6 },
-  seax: { grip: 0.3, guard: 1.1 },
-  katana: { grip: 0.34, guard: 2.2, round: true },
-  falcata: { grip: 0.2, guard: 1.3 },
-  longsword: { grip: 0.28, guard: 3.2 },
-  shamshir: { grip: 0.15, guard: 2.6 },
-};
-const HILT = HILTS[C.blade] || { grip: 0.2, guard: 3 };
 
 const $ = (id) => document.getElementById(id);
 const store = {
@@ -150,23 +139,34 @@ const sound = {
 function swordSVG(svg, widths, lengths, { target, crack } = {}) {
   const shape = outline(BLADE, widths, lengths, { curve: C.curve, ref: Math.max(...C.widths) });
   const L = C.length;
-  const grip = L * HILT.grip;
-  const guardT = Math.max(6, L * 0.014);
-  const guardH = C.width * HILT.guard;
+  // Centre the hilt on the middle of the blade where it meets the guard.
+  const cy = (shape.top[0][1] + shape.bottom[0][1]) / 2;
+  const h = hilt(C.blade, C.width, L, cy);
   const ys = [...shape.top, ...shape.bottom].map(([, y]) => y);
-  const minY = Math.min(...ys, -guardH / 2), maxY = Math.max(...ys, guardH / 2);
-  const x0 = -grip - guardT - C.width * 0.5;
+  const minY = Math.min(...ys, cy - h.half), maxY = Math.max(...ys, cy + h.half);
   const x1 = Math.max(L, shape.length) + 4;
-  svg.setAttribute("viewBox", `${x0} ${minY - 4} ${x1 - x0} ${maxY - minY + 8}`);
+  svg.setAttribute("viewBox", `${h.x0 - 2} ${minY - 4} ${x1 - h.x0 + 2} ${maxY - minY + 8}`);
   svg.replaceChildren();
-  svg.append(
-    el("rect", { class: "hilt", x: -grip - guardT, y: -C.width * 0.32, width: grip, height: C.width * 0.64, rx: C.width * 0.2 }),
-    el("circle", { class: "fitting", cx: -grip - guardT, cy: 0, r: C.width * 0.42 }),
-    HILT.round
-      ? el("ellipse", { class: "fitting", cx: -guardT / 2, cy: 0, rx: guardT / 2 + 1, ry: guardH / 2 })
-      : el("rect", { class: "fitting", x: -guardT, y: -guardH / 2, width: guardT, height: guardH, rx: guardT / 3 }),
-    el("path", { class: "steel", d: outlinePath(shape) }),
-  );
+  const defs = el("defs");
+  svg.append(defs);
+  let clips = 0;
+  const draw = (p) => {
+    const e = el(p.tag, { class: p.cls });
+    for (const [k, v] of Object.entries(p.attrs)) e.setAttribute(k, v);
+    if (p.attrs.clip) {
+      // Wraps and ribs are clipped to the grip.
+      const id = `${svg.id}-clip-${clips++}`;
+      const cp = el("clipPath", { id });
+      cp.append(el("path", { d: p.attrs.clip }));
+      defs.append(cp);
+      e.removeAttribute("clip");
+      e.setAttribute("clip-path", `url(#${id})`);
+    }
+    svg.append(e);
+  };
+  h.parts.filter((p) => !p.front).forEach(draw);
+  svg.append(el("path", { class: "steel", d: outlinePath(shape) }));
+  h.parts.filter((p) => p.front).forEach(draw);
   if (target) {
     const goal = outline(BLADE, C.widths, C.lengths, { curve: C.curve, ref: Math.max(...C.widths) });
     svg.append(el("path", { class: "target", d: outlinePath(goal) }));
