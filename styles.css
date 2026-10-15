@@ -105,7 +105,8 @@ h1 { font-size: clamp(1.6rem, 6vw, 2rem); line-height: 1; margin: 0; letter-spac
   .sword .wood { fill: #8f6640; }
   .sword .fitting { fill: #a7aaaf; stroke: #d9dbde; }
   .sword .iron { fill: #4a4946; stroke: #77746f; }
-  .sword .ito { stroke: #15151a; }
+  .sword .ito { stroke: #2b2e3b; }
+  .sword .hilt, .sword .wood { stroke: rgba(255, 255, 255, 0.22); }
 }
 .about { margin: 4px 0 0; color: var(--ink-2); font-size: 0.9rem; }
 .spec { display: grid; grid-template-columns: auto 1fr; gap: 8px 16px; margin: 16px 0 18px; padding-top: 14px; border-top: 1px solid var(--line); font-size: 0.9rem; }
@@ -270,7 +271,7 @@ dialog .primary { width: 100%; }
 #heat-controls .readout { margin: 12px 0 6px; }
 .controls + .readout { margin-top: 12px; }
 #hfire.active { background: var(--ember); border-color: var(--ember); color: #fff; }
-.sword .crack { fill: none; stroke: var(--bad); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.sword .crack line { stroke: #26201d; stroke-linecap: round; vector-effect: non-scaling-stroke; }
 
 .practise {
   display: flex; align-items: center; gap: 4px; margin: 16px 0 0; padding-top: 14px; border-top: 1px solid var(--line);

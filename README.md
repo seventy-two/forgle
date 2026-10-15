@@ -121,6 +121,7 @@ It's a static page with no server.
 - `temper.js`: the torch's heat model, oxide colours and tempered
   hardness. `trials.js`: the tests, the overall score and the share text.
 - `hilts.js`: the hilt drawn on the commission card for each blade.
+  `crack.js`: a quench crack, opening at the edge and running in.
 - `app.js` draws it and handles input.
 
 ## Running

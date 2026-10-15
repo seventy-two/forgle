@@ -6,8 +6,9 @@ import {
 } from "./forge.js";
 import { glowCSS, glowStrength, colourName } from "./glow.js";
 import { hilt } from "./hilts.js";
+import { crackLines } from "./crack.js";
 import {
-  GRIND_TIME, COLUMNS, BELT, EDGE, SIDE_OK, FLIP_TIME, beltAt, heightAt, geometry, newGrind, sideLeft, grind, flip, grindScore,
+  GRIND_TIME, COLUMNS, BELT, EDGE, SIDE_OK, FLIP_TIME, beltAt, heightAt, geometry, newGrind, sideLeft, edgeLeft, grind, flip, grindScore,
 } from "./grind.js";
 import {
   HARDEN_TIME, TRANSFER, CRACK, KEY_STEER, DRAG_STEER, QUENCHES, htTemp, htSetFire, magnetSticks, quenchTemp,
@@ -172,12 +173,13 @@ function swordSVG(svg, widths, lengths, { target, crack } = {}) {
     svg.append(el("path", { class: "target", d: outlinePath(goal) }));
   }
   if (crack !== undefined) {
-    // A jagged crack running up from the edge at crack (a share of the length).
-    const i = Math.min(shape.bottom.length - 1, Math.round(crack * (shape.bottom.length - 1)));
-    const [x, y] = shape.bottom[i];
-    const h = C.width * 0.55;
-    const d = `M${x},${y} l${-h * 0.15},${-h * 0.25} l${h * 0.2},${-h * 0.2} l${-h * 0.12},${-h * 0.3} l${h * 0.1},${-h * 0.25}`;
-    svg.append(el("path", { class: "crack", d }));
+    // A hairline running in from the edge, widest where it opens.
+    const severity = state.hardened ? state.hardened.strain.total : 1;
+    const g = el("g", { class: "crack" });
+    for (const c of crackLines(shape, crack, C.number * 7919 + 13, severity)) {
+      g.append(el("line", { x1: c.x1, y1: c.y1, x2: c.x2, y2: c.y2, "stroke-width": c.w.toFixed(2) }));
+    }
+    svg.append(g);
   }
 }
 
@@ -443,6 +445,8 @@ function practise(stage) {
   sound.init();
   sound.hiss(false);
   state.practice = stage;
+  state.g = null;
+  state.cols = null;
   const bar = { ...newBar(C, STEEL), widths: [...C.widths] };
   state.bar = bar;
   state.forged = { widths: [...bar.widths], lengths: sectionLengths(bar) };
@@ -982,11 +986,18 @@ function revealHarden(quenchant) {
 }
 
 // crackAt is where along the blade (a share of its length) a crack shows:
-// at the section with the most stress from the forge, or the middle.
+// at the section with the most stress from the forge, or else where the
+// edge was ground thinnest, or else towards the point, where it's thinnest.
 function crackAt() {
   const stress = state.bar.stress;
   const most = Math.max(...stress);
-  return most > 0 ? ((stress.indexOf(most) + 0.5) / N) * 0.92 : 0.5;
+  if (most > 0) return ((stress.indexOf(most) + 0.5) / N) * 0.92;
+  if (state.g && state.cols) {
+    const left = state.cols.map((_, j) => edgeLeft(state.g, state.cols, j));
+    const j = left.indexOf(Math.min(...left));
+    if (left[j] < 0.6) return ((j + 0.5) / COLUMNS) * 0.95;
+  }
+  return 0.7;
 }
 
 function showHardenResult() {
