@@ -1,5 +1,5 @@
 import { dayKey, commission, forgeScore, barLength } from "./game.js";
-import { bladeById, outline, outlinePath } from "./blades.js";
+import { bladeById, bender, outline, outlinePath } from "./blades.js";
 import { steelById } from "./steels.js";
 import {
   FORGE_TIME, SWEET, SPAN, newBar, advance, setFire, strike, tempAt, markerAt, sectionLengths,
@@ -20,6 +20,17 @@ import { trials, WEIGHTS, totalScore, verdict, square, shareText } from "./trial
 const KEY = dayKey();
 const C = commission(KEY);
 const BLADE = bladeById[C.blade];
+// BEND is how far the commission's blade curves at x mm from the guard.
+// The stages draw the blade taller than life but bend it true to life, so
+// it keeps the shape it has on the commission.
+const BEND = bender(BLADE, C.curve, C.length);
+const LIFT = Math.min(0, C.curve), DROP = Math.max(0, C.curve);
+
+// curveCols bends a blade's strips (see geometry) for a stage drawn sy
+// times taller than life: each strip's edge moves by its bend.
+function curveCols(cols, sy) {
+  return cols.map((c) => ({ ...c, edge: c.edge + BEND(c.mm) / sy }));
+}
 const STEEL = steelById[C.steel];
 const N = C.widths.length;
 const HELP_STORE = "forgle:seen-help";
@@ -225,16 +236,16 @@ function buildScene() {
   const tang = C.length * 0.08;
   const h = C.billet * scene.sy;
   const x1 = C.length * 1.05;
-  svg.setAttribute("viewBox", `${-tang} ${-h * 0.6} ${x1 + tang} ${h * 1.2}`);
+  svg.setAttribute("viewBox", `${-tang} ${-h * 0.6 + LIFT} ${x1 + tang} ${h * 1.2 + DROP - LIFT}`);
   const goal = outline(BLADE, C.widths, C.lengths, { ref: scene.ref });
-  scene.target = el("path", { class: "target", d: outlinePath(goal, { sy: scene.sy }) });
+  scene.target = el("path", { class: "target", d: outlinePath(goal, { sy: scene.sy, bend: BEND }) });
   scene.path = el("path", { class: "hot" });
   scene.tang = el("rect", { class: "tang", x: -tang, y: -h * 0.17, width: tang, height: h * 0.34 });
   scene.dividers = el("g");
   scene.pick = el("rect", { class: "pick", rx: 3 });
   scene.hits = el("g");
   svg.replaceChildren(scene.tang, scene.path, scene.dividers, scene.target, scene.pick, scene.hits);
-  scene.vb = { x: -tang, w: x1 + tang };
+  scene.vb = { x: -tang, w: x1 + tang, y: -h * 0.6 + LIFT, h: h * 1.2 + DROP - LIFT };
 
   const cells = $("cells");
   cells.replaceChildren();
@@ -270,19 +281,19 @@ function sectionBounds(bar) {
 function drawBar() {
   const bar = state.bar;
   const lengths = sectionLengths(bar);
-  scene.path.setAttribute("d", outlinePath(outline(BLADE, bar.widths, lengths, { ref: scene.ref }), { sy: scene.sy }));
+  scene.path.setAttribute("d", outlinePath(outline(BLADE, bar.widths, lengths, { ref: scene.ref }), { sy: scene.sy, bend: BEND }));
   const bounds = sectionBounds(bar);
   const h = C.billet * scene.sy;
-  scene.dividers.replaceChildren(...bounds.slice(1).map(([x]) => el("line", { class: "divider", x1: x, x2: x, y1: -h / 2, y2: h / 2 })));
+  scene.dividers.replaceChildren(...bounds.slice(1).map(([x]) => el("line", { class: "divider", x1: x, x2: x, y1: BEND(x) - h / 2, y2: BEND(x) + h / 2 })));
   scene.hits.replaceChildren(...bounds.map(([a, b], i) => {
-    const r = el("rect", { class: "hit", x: a, y: -h * 0.6, width: b - a, height: h * 1.2 });
+    const r = el("rect", { class: "hit", x: a, y: -h * 0.6 + LIFT, width: b - a, height: h * 1.2 + DROP - LIFT });
     r.addEventListener("pointerdown", (e) => { e.preventDefault(); pick(i); });
     return r;
   }));
   const [a, b] = bounds[state.picked];
   scene.pick.setAttribute("x", a);
   scene.pick.setAttribute("width", b - a);
-  scene.pick.setAttribute("y", -h * 0.56);
+  scene.pick.setAttribute("y", BEND((a + b) / 2) - h * 0.56);
   scene.pick.setAttribute("height", h * 1.12);
 
   const cells = $("cells").children;
@@ -313,7 +324,7 @@ function sparks(x, colour, count, spread = 1) {
   const svg = $("bar").getBoundingClientRect();
   const sc = $("scene").getBoundingClientRect();
   const px = svg.left - sc.left + ((x - scene.vb.x) / scene.vb.w) * svg.width;
-  const py = svg.top - sc.top + svg.height / 2;
+  const py = svg.top - sc.top + ((BEND(x) - scene.vb.y) / scene.vb.h) * svg.height;
   const box = $("sparks");
   for (let k = 0; k < count; k++) {
     const s = document.createElement("i");
@@ -550,7 +561,6 @@ function startGrind() {
   state.t0 = performance.now();
   const { widths, lengths } = state.forged;
   gscene.ref = C.billet;
-  state.cols = geometry(BLADE, widths, lengths, gscene.ref, C.stock);
   $("result").hidden = true;
   $("grind").hidden = false;
   setStage("grind");
@@ -568,13 +578,17 @@ function buildGrinder() {
   const minY = Math.min(...ys), maxY = Math.max(...ys);
   const tall = maxY - minY;
   // Draw the blade about a quarter as tall as the scene is wide, so the
-  // line has room to be traced.
-  gscene.sy = Math.min(8, Math.max(1.5, (0.26 * L) / tall));
+  // line has room to be traced; a curved blade's scene is taller by its
+  // curve.
+  gscene.sy = Math.min(4, Math.max(1.5, (0.26 * L) / tall));
   gscene.L = L;
+  // The strips are bent with the blade, so the hold (a height in the drawn
+  // scene, over sy) meets each at its drawn edge.
+  state.cols = curveCols(geometry(BLADE, widths, lengths, gscene.ref, C.stock), gscene.sy);
   const pad = tall * gscene.sy * 0.18;
-  gscene.vb = { x: -L * 0.02, y: minY * gscene.sy - pad, w: L * 1.04, h: tall * gscene.sy + 2 * pad };
+  gscene.vb = { x: -L * 0.02, y: minY * gscene.sy + LIFT - pad, w: L * 1.04, h: tall * gscene.sy + DROP - LIFT + 2 * pad };
   svg.setAttribute("viewBox", `${gscene.vb.x} ${gscene.vb.y} ${gscene.vb.w} ${gscene.vb.h}`);
-  gscene.steel = el("path", { class: "steel", d: outlinePath(shape, { sy: gscene.sy }) });
+  gscene.steel = el("path", { class: "steel", d: outlinePath(shape, { sy: gscene.sy, bend: BEND }) });
   gscene.ground = el("path", { class: "ground" });
   gscene.goal = el("path", { class: "goal" });
   gscene.line = el("path", { class: "line" });
@@ -847,13 +861,15 @@ function startHarden() {
   hscene.sy = Math.min(4, Math.max(1, (0.2 * L) / (maxY - minY)));
   const h = (maxY - minY) * hscene.sy;
   const svg = $("hbar");
-  svg.setAttribute("viewBox", `${-L * 0.03} ${minY * hscene.sy - h * 0.2} ${L * 1.06} ${h * 1.4}`);
-  hscene.path = el("path", { class: "hot", d: outlinePath(shape, { sy: hscene.sy }) });
+  svg.setAttribute("viewBox", `${-L * 0.03} ${minY * hscene.sy + LIFT - h * 0.2} ${L * 1.06} ${h * 1.4 + DROP - LIFT}`);
+  hscene.path = el("path", { class: "hot", d: outlinePath(shape, { sy: hscene.sy, bend: BEND }) });
   svg.replaceChildren(hscene.path);
-  // The same blade, stood on its point, for the tank.
+  // The same blade, stood on its point, for the tank: true to life, curve
+  // and all, with its tip on the line.
   const k = 205 / L;
-  $("pblade").setAttribute("d", outlinePath(shape));
-  $("pblade").setAttribute("transform", `rotate(90) scale(${k}) translate(0 ${-(minY + maxY) / 2})`);
+  const tipY = shape.top.at(-1)[1];
+  $("pblade").setAttribute("d", outlinePath(shape, { bend: BEND }));
+  $("pblade").setAttribute("transform", `rotate(90) scale(${k}) translate(0 ${-(tipY + BEND(L))})`);
   say("Heat it to just past critical: the magnet tells you when", "", 3000);
 }
 
@@ -1054,13 +1070,13 @@ function startTemper() {
   const ys = [...shape.top, ...shape.bottom].map(([, y]) => y);
   const minY = Math.min(...ys), maxY = Math.max(...ys);
   tscene.L = L;
-  tscene.sy = Math.min(8, Math.max(1.5, (0.26 * L) / (maxY - minY)));
+  tscene.sy = Math.min(4, Math.max(1.5, (0.26 * L) / (maxY - minY)));
   const sy = tscene.sy;
   const pad = (maxY - minY) * sy * 0.25;
-  tscene.vb = { x: -L * 0.02, y: minY * sy - pad, w: L * 1.04, h: (maxY - minY) * sy + 2 * pad };
+  tscene.vb = { x: -L * 0.02, y: minY * sy + LIFT - pad, w: L * 1.04, h: (maxY - minY) * sy + DROP - LIFT + 2 * pad };
   const svg = $("tbar");
   svg.setAttribute("viewBox", `${tscene.vb.x} ${tscene.vb.y} ${tscene.vb.w} ${tscene.vb.h}`);
-  const d = outlinePath(shape, { sy });
+  const d = outlinePath(shape, { sy, bend: BEND });
   const defs = el("defs");
   const clip = el("clipPath", { id: "tclip" });
   clip.append(el("path", { d }));
@@ -1073,7 +1089,7 @@ function startTemper() {
   defs.append(clip, grad);
   const strips = el("g", { "clip-path": "url(#tclip)" });
   // Each strip has a spine band and an edge band (two on double-edged blades).
-  const cols = geometry(BLADE, widths, lengths, C.billet, C.stock);
+  const cols = curveCols(geometry(BLADE, widths, lengths, C.billet, C.stock), sy);
   tscene.cols = cols;
   tscene.bands = cols.map((c) => {
     const w = L / STRIPS + 0.5;

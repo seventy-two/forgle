@@ -125,8 +125,7 @@ export function outline(blade, widths, lengths, { ref = Math.max(...widths), cur
   const tip = TIP_STYLES[blade.tip];
   const pl = pointLength(blade, widths[n - 1]);
   const length = body + pl;
-  const power = blade.curve ? blade.curve.power : 2;
-  const bend = (px) => (curve ? curve * Math.pow(px / length, power) : 0);
+  const bend = bender(blade, curve, length);
 
   const sides = (w) => {
     if (blade.edges === 2 || blade.align === undefined) return [-w / 2, w / 2];
@@ -165,10 +164,18 @@ export function outline(blade, widths, lengths, { ref = Math.max(...widths), cur
   return { top, bottom, length };
 }
 
+// bender gives how far a blade with curve mm at the point (over length mm)
+// is bent at x mm from the guard: 0 at the guard, curve at the point.
+export function bender(blade, curve, length) {
+  const power = blade.curve ? blade.curve.power : 2;
+  return (x) => (curve ? curve * Math.pow(Math.max(0, x) / length, power) : 0);
+}
+
 // outlinePath turns an outline into an SVG path, scaling x by sx and y by
-// sy and moving it by (dx, dy).
-export function outlinePath({ top, bottom }, { sx = 1, sy = 1, dx = 0, dy = 0 } = {}) {
-  const pt = ([x, y]) => `${(x * sx + dx).toFixed(2)},${(y * sy + dy).toFixed(2)}`;
+// sy and moving it by (dx, dy). bend(x) is added to y after scaling, so a
+// straight outline drawn taller than life can still bend true to life.
+export function outlinePath({ top, bottom }, { sx = 1, sy = 1, dx = 0, dy = 0, bend = () => 0 } = {}) {
+  const pt = ([x, y]) => `${(x * sx + dx).toFixed(2)},${(y * sy + dy + bend(x)).toFixed(2)}`;
   const back = [...bottom].reverse().slice(1);
   return `M${top.map(pt).join("L")}L${back.map(pt).join("L")}Z`;
 }
