@@ -42,7 +42,7 @@ with an even 1 mm edge.
   its hilt; the scene shows 0.9 of the blade's length around the belt, and
   along the blade it moves 1.5 times as far as the pointer, so one drag
   covers the whole blade. The belt is
-  8% of the blade's length wide.
+  12% of the blade's length wide.
 - Wherever the edge is pushed onto the belt, the bevel there climbs, at up
   to 1.2 of the span a second, with the square of how far it's pushed in
   (a light touch grinds slowly). Letting go lifts the blade clear.
@@ -53,12 +53,12 @@ with an even 1 mm edge.
   (2.9–4.5 mm, varying along the blade each day) to 1 mm as the bevel
   reaches the day's line, and on past it. Both faces are ground alike.
   The ground bevel is coloured strip by strip for its edge: pale while
-  over 1.3 mm, green to 0.7, amber to 0.6, red below (it may crack), and a
+  over 1.3 mm, green to 0.7, amber to 0.4, red below (it may crack), and a
   red dotted line marks the height where it gets there.
 - Double-edged blades are turned over (F) to grind the other edge.
 - 55 seconds. 60% for the lines, weighted by the blade's width so the
   point counts little, and 40% for the edge (1 mm ± 0.3). Strips under
-  0.6 mm are kept for the quench.
+  0.4 mm are kept for the quench.
 
 ## Harden
 
@@ -79,7 +79,7 @@ with an even 1 mm edge.
   in oil or 2.5s in water or brine. Drag sideways (or ← →) to keep it
   upright. The average lean (0.25 mm a degree) is the warp.
 - Strain adds up the forge's worst section stress, seconds spent burning,
-  edge strips ground under 0.6 mm, going in more than 50°C past critical,
+  edge strips ground under 0.4 mm, going in more than 50°C past critical,
   and the quench, scaled by the steel's crack sensitivity. At 100% it
   cracks. No luck involved.
 - 35 seconds to get it into the quench, or it cools in the air (30 HRC).

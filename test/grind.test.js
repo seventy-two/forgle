@@ -93,10 +93,10 @@ test("the edge reaches 1 mm as the bevel reaches the line", () => {
 
 test("the height for a thickness turns thickness round, and edges are judged by it", () => {
   for (const col of cols) {
-    for (const t of [3, 1.3, 1, 0.6, 0.2]) assert.ok(Math.abs(thickness(col, heightFor(col, t, c.bevel), c.bevel) - t) < 1e-9);
-    assert.ok(heightFor(col, 0.6, c.bevel) > heightFor(col, EDGE, c.bevel));
+    for (const t of [3, 1.3, 1, 0.6, 0.2, 0]) assert.ok(Math.abs(thickness(col, heightFor(col, t, c.bevel), c.bevel) - t) < 1e-9);
+    assert.ok(heightFor(col, 0.4, c.bevel) > heightFor(col, EDGE, c.bevel));
   }
-  assert.deepEqual([2, 1.3, 1, 0.7, 0.65, 0.6, 0.3].map(edgeState), ["thick", "ok", "ok", "ok", "over", "over", "thin"]);
+  assert.deepEqual([2, 1.3, 1, 0.7, 0.65, 0.4, 0.3].map(edgeState), ["thick", "ok", "ok", "ok", "over", "over", "thin"]);
 });
 
 test("a perfect grind scores 100, and mistakes cost", () => {
@@ -107,7 +107,7 @@ test("a perfect grind scores 100, and mistakes cost", () => {
     assert.equal(s.thin, 0);
     for (let j = 0; j < COLUMNS; j++) assert.ok(Math.abs(edgeLeft(perfect, cols, j, edges) - EDGE) < 1e-9);
     assert.ok(grindScore(c, newGrind(c.bevel), cols, edges).score < 10);
-    const high = { ...perfect, lines: [perfect.lines[0].map((h) => Math.min(1, h + 0.15)), perfect.lines[1]] };
+    const high = { ...perfect, lines: [perfect.lines[0].map((h) => Math.min(1, h + 0.4)), perfect.lines[1]] };
     const hs = grindScore(c, high, cols, edges);
     assert.ok(hs.line < 100 && hs.edge < 100 && hs.thin > 0);
   }
@@ -137,6 +137,9 @@ test("a steady player sweeping along, lifting where it's done, grinds it in time
         const todo = cs.map((col, j) => j).filter((j) => underBelt(cs[j], x) && need(j));
         const close = todo.some((j) => g.lines[g.down][j] > k.bevel - 0.12);
         let y = todo.length ? Math.max(...todo.map((j) => edgeDown(cs[j], g.down))) - most * (close ? 0.4 : 0.85) : Infinity;
+        // And only brush the strips already done.
+        const done = cs.map((col, j) => j).filter((j) => underBelt(cs[j], x) && !need(j));
+        if (done.length) y = Math.max(y, Math.max(...done.map((j) => edgeDown(cs[j], g.down))) - most * 0.25);
         const low = lowest(g, cs, x);
         if (low !== null) y = Math.max(y, low - most);
         g = grind(g, cs, { x, y, at: t }, t + step);

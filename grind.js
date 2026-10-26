@@ -11,12 +11,12 @@ import { outline } from "./blades.js";
 
 export const GRIND_TIME = 55; // seconds on the clock
 export const COLUMNS = 40; // the blade is ground in this many strips, tang to point
-export const BELT = 0.08; // how much of the blade's length the belt is wide
+export const BELT = 0.12; // how much of the blade's length the belt is wide
 export const GIVE = 0.4; // how far the belt gives, as a share of the blade's widest span
 export const RATE = 1.2; // share of the span the bevel climbs a second, pushed all the way in
 export const EDGE = 1.0; // mm: the edge to leave before the quench
 export const EDGE_OK = 0.3; // mm either side of it that's fine
-export const THIN = 0.6; // mm: thinner than this and the edge may crack in the quench
+export const THIN = 0.4; // mm: thinner than this and the edge may crack in the quench
 export const FLIP_TIME = 0.6; // seconds to turn the blade over
 export const DT = 0.005; // the sampling grid, in seconds
 
@@ -125,15 +125,26 @@ export function flip(g, t) {
 
 // thickness is how thick strip c's edge is with its bevel at line: it
 // thins from the stock to EDGE as the bevel climbs to the commission's
-// line (bevel), and on past it.
+// line (bevel), then on towards nothing at the spine, never faster than
+// it did before the line, so there's room past it to ease off.
 export function thickness(c, line, bevel) {
-  return Math.max(0, c.stock - ((c.stock - EDGE) * line) / bevel);
+  const [before, after] = slopes(c, bevel);
+  if (line <= bevel) return c.stock - before * line;
+  return Math.max(0, EDGE - after * (line - bevel));
+}
+
+// slopes is how fast strip c's edge thins (mm per share of the span)
+// before the line and after it.
+function slopes(c, bevel) {
+  const before = (c.stock - EDGE) / bevel;
+  return [before, Math.min(before, EDGE / (1 - bevel))];
 }
 
 // heightFor is how high strip c's bevel is when its edge is t mm thick:
 // thickness turned round.
 export function heightFor(c, t, bevel) {
-  return (bevel * (c.stock - t)) / (c.stock - EDGE);
+  const [before, after] = slopes(c, bevel);
+  return t >= EDGE ? (c.stock - t) / before : bevel + (EDGE - t) / after;
 }
 
 // edgeState says how an edge t mm thick is doing: still thick, ok (within
