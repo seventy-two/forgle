@@ -565,9 +565,9 @@ function startGrind() {
   setStage("grind");
   buildGrinder();
   // Held over the middle of the belt, a little above it.
-  state.press = { x: 0.5, y: maxEdge() + (0.35 * gscene.tall) / gscene.sy, at: 0, vx: 0, vy: 0, drag: null, touching: false };
+  state.press = { x: 0.5, y: maxEdge() + Math.min(0.35 * gscene.tall, gscene.away) / gscene.sy, at: 0, vx: 0, vy: 0, drag: null, touching: false };
   drawGrind();
-  say("Drag the blade up to the belt", "", 2500);
+  say("Drag the blade to the belt", "", 2500);
 }
 
 // maxEdge is how low the down edge reaches anywhere along the blade.
@@ -588,14 +588,20 @@ function buildGrinder() {
   gscene.tall = Math.max(tall + DROP - LIFT, 0.1 * L);
   state.cols = curveCols(geometry(BLADE, widths, lengths, C.billet, C.stock), gscene.sy);
   const T = gscene.tall;
-  // The scene is drawn turned over (see world below), the grinder hanging
-  // from the top, and wide enough to keep most of the blade in view
-  // wherever it's held.
-  svg.setAttribute("viewBox", `${-0.7 * L} ${-0.6 * T} ${1.4 * L} ${2 * T}`);
+  // The scene is drawn upright (see world below): the sword point up, the
+  // grinder on the right. It's tall enough to keep most of the sword in
+  // view wherever it's held, and as wide as the page allows, the belt's
+  // face about two thirds of the way across.
+  const box = svg.getBoundingClientRect();
+  const H = 1.4 * L;
+  const W = box.height > 0 ? (H * box.width) / box.height : 0.6 * L;
+  svg.setAttribute("viewBox", `${-0.65 * W} ${-0.6 * L} ${W} ${H}`);
+  // How far from the belt the edge can be held, leaving the sword in view.
+  gscene.away = Math.max(0.3 * T, 0.65 * W - 1.8 * tall);
 
   // The grinder: a belt round a wheel, in front of the blade so an edge
   // pushed in sinks into it.
-  const w = BELT * L, bottom = 0.65 * T;
+  const w = BELT * L, bottom = 0.4 * W;
   const r = w / 2;
   const grinder = el("g", { class: "machine" });
   const loop = `M${-r},${bottom}L${-r},${r}A${r},${r} 0 0 1 ${r},${r}L${r},${bottom}Z`;
@@ -644,9 +650,8 @@ function buildGrinder() {
   goal.setAttribute("d", each(state.cols.map(() => C.bevel)));
   // Past this the edge is thin enough to crack.
   limit.setAttribute("d", each(state.cols.map((c) => Math.min(1, heightFor(c, THIN, C.bevel)))));
-  // Turned over: the edge up to the belt, as on a real grinder, and the
-  // point to the left.
-  const world = el("g", { transform: "scale(-1 -1)" });
+  // Upright: the point up, the edge to the belt on the right.
+  const world = el("g", { transform: "rotate(-90)" });
   world.append(gscene.blade, grinder);
   svg.replaceChildren(world);
   $("flip").hidden = BLADE.edges !== 2;
@@ -704,7 +709,7 @@ function moveBlade(x, y) {
   const p = state.press;
   p.x = Math.max(0, Math.min(1, x));
   const low = lowest(state.g, state.cols, p.x);
-  const top = maxEdge() + (0.4 * gscene.tall) / gscene.sy;
+  const top = maxEdge() + gscene.away / gscene.sy;
   p.y = Math.min(top, low === null ? y : Math.max(low - give(state.cols), y));
 }
 
@@ -723,7 +728,9 @@ function grabAt(e, phase) {
     const low = lowest(state.g, state.cols, p.x);
     if (low !== null) moveBlade(p.x, Math.max(p.y, low + (0.08 * gscene.tall) / gscene.sy));
   }
-  else if (p.drag) moveBlade(p.drag.x + (pt.x - p.drag.px) / gscene.L, p.drag.y + (pt.y - p.drag.py) / gscene.sy);
+  // The world is turned upright: down the screen is along the blade to the
+  // point's side of the belt, right is into the belt.
+  else if (p.drag) moveBlade(p.drag.x + (pt.y - p.drag.py) / gscene.L, p.drag.y - (pt.x - p.drag.px) / gscene.sy);
   $("gscene").classList.toggle("holding", Boolean(p.drag));
 }
 
@@ -736,8 +743,8 @@ function flushGrind(t) {
   }
 }
 
-// The keys move the blade: ← → along at KEY_X lengths a second, ↑ ↓ up
-// (into the belt) and down at KEY_Y of its height a second.
+// The keys move the blade: ↑ ↓ along at KEY_X lengths a second, ← →
+// away from and into the belt at KEY_Y of its height a second.
 const KEY_X = 0.5;
 const KEY_Y = 0.6;
 
@@ -754,7 +761,7 @@ function doFlip(stamp) {
   state.g = flip(state.g, t);
   // Lift it clear to turn it over.
   state.press.drag = null;
-  moveBlade(state.press.x, maxEdge() + (0.35 * gscene.tall) / gscene.sy);
+  moveBlade(state.press.x, maxEdge() + Math.min(0.35 * gscene.tall, gscene.away) / gscene.sy);
   const sc = $("gscene");
   sc.classList.add("flipping");
   setTimeout(() => sc.classList.remove("flipping"), FLIP_TIME * 1000);
@@ -1407,10 +1414,10 @@ function setup() {
     if (state.phase === "grind") {
       const k = e.key.toLowerCase();
       if (k === "f") doFlip(e.timeStamp);
-      else if (k === "arrowleft" || k === "a") steerBlade(-KEY_X, null);
-      else if (k === "arrowright" || k === "d") steerBlade(KEY_X, null);
-      else if (k === "arrowup" || k === "w") steerBlade(null, -KEY_Y);
-      else if (k === "arrowdown" || k === "s") steerBlade(null, KEY_Y);
+      else if (k === "arrowup" || k === "w") steerBlade(-KEY_X, null);
+      else if (k === "arrowdown" || k === "s") steerBlade(KEY_X, null);
+      else if (k === "arrowright" || k === "d") steerBlade(null, -KEY_Y);
+      else if (k === "arrowleft" || k === "a") steerBlade(null, KEY_Y);
       else return;
       e.preventDefault();
       return;

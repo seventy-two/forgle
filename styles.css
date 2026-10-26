@@ -241,7 +241,7 @@ dialog .primary { width: 100%; }
 /* The grinder */
 .scene.grinder { padding: 30px 0 0; touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; }
 .scene.grinder.holding { cursor: grabbing; }
-.grinder svg { overflow: hidden; }
+.grinder svg { overflow: hidden; height: min(54vh, 540px); }
 .grinder .steel { fill: #8b9097; }
 .grinder .ground { fill: #d5d9de; }
 .grinder .goal { fill: none; stroke: #ffb27a; stroke-width: 1.5; stroke-dasharray: 5 4; vector-effect: non-scaling-stroke; }

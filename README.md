@@ -35,10 +35,11 @@ with an even 1 mm edge.
 
 ## The grind
 
-- The forged blade goes to a belt grinder that stays put, hanging from the
-  top of the scene; the player drags the blade around under it, edge up as
-  on a real grinder (or moves it with the arrow keys). The sword is drawn
-  as on the commission, true to life with its hilt, turned over. The belt is
+- The forged blade goes to a belt grinder that stays put on the right of
+  the scene; the player holds the sword upright, point up, and drags it
+  around: up and down to run it along the belt, right to push the edge in
+  (or ↑ ↓ ← →). The sword is drawn as on the commission, true to life with
+  its hilt. The belt is
   8% of the blade's length wide.
 - Wherever the edge is pushed onto the belt, the bevel there climbs, at up
   to 1.2 of the span a second, with the square of how far it's pushed in
