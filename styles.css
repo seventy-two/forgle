@@ -290,6 +290,7 @@ dialog .primary { width: 100%; }
 
 /* Tempering */
 .scene.torch { padding: 30px 10px 26px; touch-action: none; cursor: crosshair; user-select: none; -webkit-user-select: none; }
+.torch .tang { fill: #6f7378; stroke: rgba(0, 0, 0, 0.45); stroke-width: 1; vector-effect: non-scaling-stroke; }
 .torch .outline { fill: none; stroke: rgba(0, 0, 0, 0.45); stroke-width: 1; vector-effect: non-scaling-stroke; }
 .torch .flame { fill: url(#flame); mix-blend-mode: screen; pointer-events: none; }
 .chart { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; margin-top: 10px; }

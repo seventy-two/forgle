@@ -31,6 +31,29 @@ const LIFT = Math.min(0, C.curve), DROP = Math.max(0, C.curve);
 function curveCols(cols, sy) {
   return cols.map((c) => ({ ...c, edge: c.edge + BEND(c.mm) / sy }));
 }
+// tangPath is the bare tang behind a blade's guard, as it is before the
+// hilt goes on: as long as the commission's hilt, tapering, centred on the
+// blade where it meets the guard. shape is the blade's outline (y times
+// sy).
+function tangPath(shape, sy = 1) {
+  const top = shape.top[0][1] * sy, bottom = shape.bottom[0][1] * sy;
+  const cy = (top + bottom) / 2, w = bottom - top;
+  const x0 = 0.9 * hilt(C.blade, C.width, shape.length, cy).x0;
+  const a = 0.17 * w, b = 0.1 * w;
+  return `M0.5,${cy - a}L${x0},${cy - b}L${x0},${cy + b}L0.5,${cy + a}Z`;
+}
+
+// swordFrame is a viewBox around the bare sword (blade and tang, y times sy)
+// with room around it, at least tall times as tall as it is wide.
+function swordFrame(shape, sy, pad = 0.2, tall = 0.2) {
+  const ys = [...shape.top, ...shape.bottom].map(([x, y]) => y * sy + BEND(x));
+  const minY = Math.min(...ys), maxY = Math.max(...ys);
+  const x0 = 0.9 * hilt(C.blade, C.width, shape.length, 0).x0;
+  const w = shape.length * 1.03 - x0;
+  const h = Math.max((maxY - minY) * (1 + 2 * pad), tall * w);
+  return { x: x0 - shape.length * 0.015, y: (minY + maxY) / 2 - h / 2, w, h };
+}
+
 const STEEL = steelById[C.steel];
 const N = C.widths.length;
 const HELP_STORE = "forgle:seen-help";
@@ -878,19 +901,18 @@ function startHarden() {
   const { widths, lengths } = state.forged;
   const shape = outline(BLADE, widths, lengths, { ref: C.billet });
   const L = shape.length;
-  const ys = [...shape.top, ...shape.bottom].map(([, y]) => y);
-  const minY = Math.min(...ys), maxY = Math.max(...ys);
-  hscene.sy = Math.min(4, Math.max(1, (0.2 * L) / (maxY - minY)));
-  const h = (maxY - minY) * hscene.sy;
+  // True to life, as on the commission, with its bare tang.
+  hscene.sy = 1;
+  const vb = swordFrame(shape, 1, 0.4);
   const svg = $("hbar");
-  svg.setAttribute("viewBox", `${-L * 0.03} ${minY * hscene.sy + LIFT - h * 0.2} ${L * 1.06} ${h * 1.4 + DROP - LIFT}`);
-  hscene.path = el("path", { class: "hot", d: outlinePath(shape, { sy: hscene.sy, bend: BEND }) });
+  svg.setAttribute("viewBox", `${vb.x} ${vb.y} ${vb.w} ${vb.h}`);
+  hscene.path = el("path", { class: "hot", d: outlinePath(shape, { bend: BEND }) + tangPath(shape) });
   svg.replaceChildren(hscene.path);
   // The same blade, stood on its point, for the tank: true to life, curve
   // and all, with its tip on the line.
   const k = 205 / L;
   const tipY = shape.top.at(-1)[1];
-  $("pblade").setAttribute("d", outlinePath(shape, { bend: BEND }));
+  $("pblade").setAttribute("d", outlinePath(shape, { bend: BEND }) + tangPath(shape));
   $("pblade").setAttribute("transform", `rotate(90) scale(${k}) translate(0 ${-(tipY + BEND(L))})`);
   say("Heat it to just past critical: the magnet tells you when", "", 3000);
 }
@@ -1092,10 +1114,10 @@ function startTemper() {
   const ys = [...shape.top, ...shape.bottom].map(([, y]) => y);
   const minY = Math.min(...ys), maxY = Math.max(...ys);
   tscene.L = L;
-  tscene.sy = Math.min(4, Math.max(1.5, (0.26 * L) / (maxY - minY)));
+  // True to life, as on the commission, with its bare tang.
+  tscene.sy = 1;
   const sy = tscene.sy;
-  const pad = (maxY - minY) * sy * 0.25;
-  tscene.vb = { x: -L * 0.02, y: minY * sy + LIFT - pad, w: L * 1.04, h: (maxY - minY) * sy + DROP - LIFT + 2 * pad };
+  tscene.vb = swordFrame(shape, sy, 0.3);
   const svg = $("tbar");
   svg.setAttribute("viewBox", `${tscene.vb.x} ${tscene.vb.y} ${tscene.vb.w} ${tscene.vb.h}`);
   const d = outlinePath(shape, { sy, bend: BEND });
@@ -1135,7 +1157,7 @@ function startTemper() {
     const j = Math.max(0, Math.min(STRIPS - 1, Math.floor(x * STRIPS)));
     return (cols[j].edge - cols[j].span) * sy;
   };
-  svg.replaceChildren(defs, strips, el("path", { class: "outline", d }), tscene.flame);
+  svg.replaceChildren(defs, el("path", { class: "tang", d: tangPath(shape, sy) }), strips, el("path", { class: "outline", d }), tscene.flame);
 
   // The chart: each colour, and the hardness it leaves this blade's edge.
   const h0 = state.hardened.hrc;

@@ -62,6 +62,10 @@ with an even 1 mm edge.
 
 ## Harden
 
+- The harden and temper stages draw the sword true to life, as on the
+  commission, but with its bare tang: the hilt goes on after heat
+  treatment.
+
 - The heat-treat forge levels off at 900°C (time constant 4s), so it can
   take any steel past its critical temperature (770–800°C) but not much
   further. Every steel's critical temperature glows about the same cherry,
