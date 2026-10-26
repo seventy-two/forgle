@@ -40,25 +40,26 @@ with an even 1 mm edge.
   belt, move across to draw it along (or ← → and hold Space). The belt
   covers 8% of the blade's length at once, so wherever the blade lingers it
   takes off more.
-- The blade is held to the belt at a tilt (1–15° from the face; drag up or
-  down while pressing, the wheel, or ↑ ↓). The belt is a flat plane: every
-  moment pressed cuts each strip under it 3.2 mm/s deeper along a plane at
-  that tilt, starting where the plane first meets the face (the edge on a
-  fresh face, the shoulder on a face already ground steeper). The bevel's
-  height isn't steered: it's where that plane leaves the face, so a shallow
-  tilt runs it high and a steep one keeps it low. A line too low can be
-  raised with a shallower pass; one too high stays.
+- Up and down aims it (↑ ↓ on a keyboard): the blade is tilted so that the
+  belt's flat face, cut in until the edge is 1 mm, leaves the side of the
+  blade at the height aimed at. Every moment pressed cuts the strips under
+  the belt 2.6 mm/s deeper along that plane, starting where it first meets
+  the face (the edge on a fresh face, the shoulder on one ground steeper).
+  So the bevel climbs towards the aim as the edge thins and reaches it as
+  the edge is done; grind on and both go too far. A line too low can be
+  raised by aiming higher; one too high stays. Aimed below the edge, the
+  belt doesn't touch.
 - The edge comes off the anvil between 2.9 and 4.5 mm thick, varying along
-  the blade each day, so the right tilt varies along it too. The target is
-  a 1 mm edge (±0.3) with the bevel at the day's height (a share of the way
-  from edge to spine, or to the centre line on double-edged blades, which
-  are ground on both edges at once). Each side takes half of what has to
-  come off; the boxes show what's left on the current side (✓ within
-  ±0.15 mm). A cross-section of the strip under the belt shows the steel
-  (drawn thicker than life), the belt's face and the bevels to cut.
+  the blade each day. The target is a 1 mm edge (±0.3) with the bevel at
+  the day's height (a share of the way from edge to spine, or to the centre
+  line on double-edged blades, which are ground on both edges at once).
+  Each side takes half of what has to come off; the boxes show what's left
+  on the current side (✓ within ±0.15 mm). A cross-section of the strip
+  under the belt shows the steel (drawn thicker than life), the belt's face
+  and the bevels to cut.
 - Steel under the belt heats (faster the thinner its edge) and cools in the
   air (time constant 3s); steady passes stay well below blue, lingering
-  blues it in a second or two. The bucket (C) cools it, taking a second.
+  blues it in a few seconds. The bucket (C) cools it, taking a second.
   Blued strips keep their colour.
 - 45 seconds for both sides. 60% for the lines, weighted by the blade's
   width so the point counts little, and 40% for the edge (less a share for

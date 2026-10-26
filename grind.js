@@ -1,13 +1,13 @@
 // The grind stage's rules: grinding the bevels on a belt grinder. The belt
-// stays put; the player draws the blade across it, pressed to the belt at
-// a tilt. The belt is a flat plane, so every moment pressed cuts each strip
-// under it down to a plane at that tilt: the bevel's height isn't drawn, it
-// comes from how much steel is taken off at what angle (a shallow tilt runs
-// the bevel high, a steep one keeps it low). Steel under the belt heats,
-// thin steel fastest, and cools in the air or in the bucket. Everything is
-// pure and comes from event times: the time between two events is sampled
-// on a fixed grid of absolute times, so it doesn't matter how often the
-// page asks.
+// stays put; the player draws the blade across it, pressed to the belt and
+// aimed at a height: the blade is tilted so that the belt's flat face, cut
+// in until the edge is 1 mm, meets the side of the blade at that height.
+// So the bevel climbs towards the aim as the edge thins, and reaches it as
+// the edge is done; keep grinding and both go too far. Steel under the belt
+// heats, thin steel fastest, and cools in the air or in the bucket.
+// Everything is pure and comes from event times: the time between two
+// events is sampled on a fixed grid of absolute times, so it doesn't
+// matter how often the page asks.
 
 import { outline } from "./blades.js";
 
@@ -16,16 +16,14 @@ export const COLUMNS = 40; // the blade is ground in this many strips, tang to p
 export const LEVELS = 25; // each strip's face is followed at this many heights, edge to spine
 export const BELT = 0.08; // how much of the blade's length the belt covers at once
 export const OVERRUN = 0.04; // how far the blade can be drawn past either end of the belt
-export const RATE = 3.2; // mm a second the belt cuts into steel pressed to it
+export const RATE = 2.6; // mm a second the belt cuts into steel pressed to it
 export const EDGE = 1.0; // mm: the edge to leave before the quench
 export const EDGE_OK = 0.3; // mm either side of it that's fine
 export const SIDE_OK = EDGE_OK / 2; // and for each side's share
 export const THIN = 0.6; // mm: thinner than this and the edge may crack in the quench
 export const FLIP_TIME = 0.8; // seconds to turn the blade over
 export const DUNK_TIME = 1.0; // seconds to cool it in the bucket
-export const TILT = [1, 15]; // degrees the blade can be tilted to the belt, from the face
-export const START_TILT = 9; // degrees it starts at: steep, so the bevel starts low
-export const HEAT = 1.5; // how fast steel under the belt heats, per second, for a 1 mm edge
+export const HEAT = 0.8; // how fast steel under the belt heats, per second, for a 1 mm edge
 export const COOL = 3; // seconds for steel off the belt to lose most of its heat (time constant)
 export const BLUE = 1; // heat at which the edge blues: about 300°C
 export const DT = 0.005; // the sampling grid, in seconds
@@ -111,10 +109,11 @@ export function edgeLeft(g, cols, j) {
   return Math.max(0, cols[j].stock - depth(g, j, 0) - depth(g, j, 1));
 }
 
-// tiltFor is the tilt (degrees) that grinds strip j's bevel to height h (a
-// share of the span) just as its edge reaches 1 mm.
-export function tiltFor(col, h) {
-  return (Math.atan((col.stock - EDGE) / 2 / (h * col.span)) * 180) / Math.PI;
+// slope is the tangent of the tilt (from the face) that aims strip col's
+// bevel at height h (a share of the span): cut in until the edge is 1 mm,
+// the belt's face leaves the side of the blade there.
+export function slope(col, h) {
+  return (col.stock - EDGE) / 2 / (h * col.span);
 }
 
 // touch is where the belt, tilted t (the tangent of the tilt), first meets
@@ -128,8 +127,10 @@ export function touch(face, span, t) {
 }
 
 // The hold: whether the blade is pressed to the belt (down), where the
-// belt's centre is along it (x, a share of the length) and its tilt
-// (degrees), each moving at vx and vt a second (the keys), within bounds.
+// belt's centre is along it (x, a share of the length) and the height it's
+// aimed at (y, mm in the blade's own coordinates, y down, like the
+// strips' edges), each moving at vx and vy a second (the keys), y within
+// [lo, hi].
 export const X_RANGE = [-OVERRUN, 1 + OVERRUN];
 
 export function holdAt(hold, s) {
@@ -137,15 +138,15 @@ export function holdAt(hold, s) {
   return {
     ...hold,
     x: clamp(hold.x + (hold.vx || 0) * dt, X_RANGE[0], X_RANGE[1]),
-    tilt: clamp(hold.tilt + (hold.vt || 0) * dt, TILT[0], TILT[1]),
+    y: clamp(hold.y + (hold.vy || 0) * dt, hold.lo ?? -Infinity, hold.hi ?? Infinity),
     at: s,
   };
 }
 
 // grind runs the grinder from the hold's time to t1 and returns the new
 // state. Strips under the belt while it's pressed (not while turning it
-// over or dunking it) are cut to the belt's plane and heat; every strip
-// cools.
+// over or dunking it), aimed above their edge, are cut to the belt's plane
+// and heat; every strip cools.
 export function grind(g, cols, hold, t1) {
   const t0 = hold.at;
   if (t1 <= t0) return g;
@@ -161,11 +162,13 @@ export function grind(g, cols, hold, t1) {
     const s = k * DT;
     for (let j = 0; j < COLUMNS; j++) heat[j] *= decay;
     if (!hold.down || s < busy) continue;
-    const { x, tilt } = holdAt(hold, s);
-    const t = Math.tan((tilt * Math.PI) / 180);
+    const { x, y } = holdAt(hold, s);
     for (let j = 0; j < COLUMNS; j++) {
       const c = cols[j];
       if (Math.abs(c.x - x) > BELT / 2) continue;
+      const h = (c.edge - y) / c.span;
+      if (h <= 0) continue; // aimed below the edge: not touching
+      const t = slope(c, Math.min(1, h));
       if (!copied.has(j)) {
         faces[side][j] = [...faces[side][j]];
         copied.add(j);

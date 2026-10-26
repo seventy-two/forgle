@@ -8,8 +8,8 @@ import { glowCSS, glowStrength, colourName } from "./glow.js";
 import { hilt } from "./hilts.js";
 import { crackLines } from "./crack.js";
 import {
-  GRIND_TIME, COLUMNS, LEVELS, BELT, EDGE, SIDE_OK, FLIP_TIME, DUNK_TIME, TILT, START_TILT, BLUE, X_RANGE,
-  geometry, newGrind, perfectGrind, sideLeft, edgeLeft, touch, holdAt, grind, flip, dunk, grindScore,
+  GRIND_TIME, COLUMNS, LEVELS, BELT, EDGE, SIDE_OK, FLIP_TIME, DUNK_TIME, BLUE, X_RANGE,
+  geometry, newGrind, perfectGrind, sideLeft, edgeLeft, slope, touch, holdAt, grind, flip, dunk, grindScore,
 } from "./grind.js";
 import {
   HARDEN_TIME, TRANSFER, CRACK, KEY_STEER, DRAG_STEER, QUENCHES, htTemp, htSetFire, magnetSticks, quenchTemp,
@@ -556,15 +556,16 @@ const gscene = { sy: 1, ref: 0 };
 function startGrind() {
   state.phase = "grind";
   state.g = newGrind();
-  state.press = { down: false, x: 0.5, tilt: START_TILT, vx: 0, vt: 0, at: 0, drag: null };
   state.t0 = performance.now();
   gscene.ref = C.billet;
   $("result").hidden = true;
   $("grind").hidden = false;
   setStage("grind");
   buildGrinder();
+  const [lo, hi] = heightBounds();
+  state.press = { down: false, x: 0.5, y: startHeight(), vx: 0, vy: 0, lo, hi, at: 0 };
   drawGrind(0);
-  say("Hold the blade to the belt and draw it across", "", 2500);
+  say("Aim at the dashed line and draw the blade across the belt", "", 2500);
 }
 
 function buildGrinder() {
@@ -598,7 +599,8 @@ function buildGrinder() {
   gscene.line = el("path", { class: "line" });
   gscene.other = el("path", { class: "other" });
   gscene.belt = el("rect", { class: "belt", y: gscene.vb.y, height: gscene.vb.h, width: BELT * L, rx: 2 });
-  svg.replaceChildren(defs, gscene.steel, gscene.ground, gscene.other, gscene.goal, gscene.line, gscene.belt);
+  gscene.aim = el("line", { class: "aim" });
+  svg.replaceChildren(defs, gscene.steel, gscene.ground, gscene.other, gscene.goal, gscene.line, gscene.belt, gscene.aim);
   gscene.goal.setAttribute("d", linePath(state.cols.map(() => C.bevel)));
 
   // The cross-section at the belt, edge down, its thickness drawn XS times
@@ -664,6 +666,10 @@ function drawGrind(t) {
   gscene.other.setAttribute("d", linePath(g.lines[1 - side]));
   g.peak.forEach((p, j) => gscene.stops[j].setAttribute("stop-color", p < 0.5 ? GROUND : oxideCSS(20 + 280 * Math.min(p, 1.05))));
   gscene.belt.setAttribute("x", (hold.x - BELT / 2) * gscene.L);
+  gscene.aim.setAttribute("x1", (hold.x - BELT / 2) * gscene.L);
+  gscene.aim.setAttribute("x2", (hold.x + BELT / 2) * gscene.L);
+  gscene.aim.setAttribute("y1", hold.y * gscene.sy);
+  gscene.aim.setAttribute("y2", hold.y * gscene.sy);
   $("side").textContent = side === 0 ? "First side" : "Second side";
 
   // The cross-section under the belt: this side on the left.
@@ -683,15 +689,18 @@ function drawGrind(t) {
   gscene.secEdge.setAttribute("x2", (c.stock / 2 - d) * xs);
   gscene.secEdge.setAttribute("y1", c.span);
   gscene.secEdge.setAttribute("y2", c.span);
-  // The belt's face, where it would meet this side at the tilt.
-  const tan = Math.tan((hold.tilt * Math.PI) / 180);
-  const a = touch(near, c.span, tan);
-  const beltX = (y) => (-c.stock / 2 + a - y * tan) * xs;
-  gscene.secBelt.setAttribute("x1", beltX(-0.1 * c.span));
-  gscene.secBelt.setAttribute("y1", 1.1 * c.span);
-  gscene.secBelt.setAttribute("x2", beltX(1.1 * c.span));
-  gscene.secBelt.setAttribute("y2", -0.1 * c.span);
-  $("gtilt").textContent = `${hold.tilt.toFixed(1)}°`;
+  // The belt's face, where it meets this side at the tilt aimed at.
+  const h = (c.edge - hold.y) / c.span;
+  gscene.secBelt.style.display = h > 0 ? "" : "none";
+  if (h > 0) {
+    const tan = slope(c, Math.min(1, h));
+    const a = touch(near, c.span, tan);
+    const beltX = (y) => (-c.stock / 2 + a - y * tan) * xs;
+    gscene.secBelt.setAttribute("x1", beltX(-0.1 * c.span));
+    gscene.secBelt.setAttribute("y1", 1.1 * c.span);
+    gscene.secBelt.setAttribute("x2", beltX(1.1 * c.span));
+    gscene.secBelt.setAttribute("y2", -0.1 * c.span);
+  }
   $("gedge").textContent = `${edgeLeft(g, state.cols, j).toFixed(1)} mm`;
   const heat = Math.max(...g.heat);
   const meter = $("gheat");
@@ -734,14 +743,17 @@ function bladeX(e) {
   return Math.max(X_RANGE[0], Math.min(X_RANGE[1], p.x / gscene.L));
 }
 
-// The pointer: across moves the blade along the belt; while pressed, up
-// and down tilt it (TILT_DRAG degrees over the scene's height; up is
-// shallower, so the line climbs). The wheel tilts it too.
-const TILT_DRAG = 4;
-const TILT_WHEEL = 0.2;
+// bladeY turns a pointer event's position into the blade's own y (mm).
+function bladeY(e) {
+  const ctm = $("gbar").getScreenCTM();
+  if (!ctm) return state.press.y;
+  const p = new DOMPoint(e.clientX, e.clientY).matrixTransform(ctm.inverse());
+  return Math.max(state.press.lo, Math.min(state.press.hi, p.y / gscene.sy));
+}
 
-// pressAt records a pointer event: first grinding up to its time with the
-// hold as it was, then taking the new position, tilt and grip.
+// pressAt records a pointer event (across draws the blade along the belt,
+// up and down aims it): first grinding up to its time with the hold as it
+// was, then taking the new position, aim and grip.
 function pressAt(e, down) {
   if (state.phase !== "grind") return;
   const t = stageTime(e.timeStamp);
@@ -749,13 +761,25 @@ function pressAt(e, down) {
   const p = state.press;
   if (e.clientX !== undefined) {
     p.x = bladeX(e);
-    if (down && p.drag) {
-      const h = $("gscene").getBoundingClientRect().height;
-      p.tilt = Math.max(TILT[0], Math.min(TILT[1], p.drag.tilt + ((e.clientY - p.drag.y) / h) * TILT_DRAG));
-    }
-    p.drag = down ? p.drag || { y: e.clientY, tilt: p.tilt } : null;
+    p.y = bladeY(e);
   }
   setDown(down);
+}
+
+// heightBounds is how far the aim can go: from the spine (or the far edge)
+// to just below the edge.
+function heightBounds() {
+  const cols = state.cols;
+  const top = Math.min(...cols.map((c) => c.edge - (BLADE.edges === 2 ? 2 : 1) * c.span));
+  const bottom = Math.max(...cols.map((c) => c.edge));
+  return [top, bottom + 2];
+}
+
+// startHeight is where the keyboard's aim starts: on the line at the middle
+// of the blade.
+function startHeight() {
+  const c = state.cols[Math.floor(COLUMNS / 2)];
+  return c.edge - C.bevel * c.span;
 }
 
 function setDown(down) {
@@ -773,25 +797,16 @@ function flushGrind(t) {
   }
 }
 
-// The keys: ← → draw the blade along at KEY_X lengths a second, ↑ ↓ tilt
-// it at KEY_TILT degrees a second (↑ shallower), Space presses it on.
+// The keys: ← → draw the blade along at KEY_X lengths a second, ↑ ↓ move
+// the aim at KEY_HEIGHT spans a second, Space presses it on.
 const KEY_X = 0.6;
-const KEY_TILT = 2;
+const KEY_HEIGHT = 0.8;
 
-function steerBlade(stamp, vx, vt) {
+function steerBlade(stamp, vx, vy) {
   if (state.phase !== "grind") return;
   flushGrind(stageTime(stamp));
   if (vx !== null) state.press.vx = vx;
-  if (vt !== null) state.press.vt = vt;
-}
-
-function wheelTilt(e) {
-  if (state.phase !== "grind") return;
-  e.preventDefault();
-  flushGrind(stageTime(e.timeStamp));
-  const p = state.press;
-  p.tilt = Math.max(TILT[0], Math.min(TILT[1], p.tilt + Math.sign(e.deltaY) * TILT_WHEEL));
-  if (p.drag) p.drag = { y: e.clientY, tilt: p.tilt };
+  if (vy !== null) state.press.vy = vy * KEY_HEIGHT * Math.max(...state.cols.map((c) => c.span));
 }
 
 function doFlip(stamp) {
@@ -863,7 +878,7 @@ function finishGrind(t) {
   if (state.phase !== "grind") return;
   flushGrind(t);
   setDown(false);
-  state.press.vx = state.press.vt = 0;
+  state.press.vx = state.press.vy = 0;
   state.phase = "ground";
   const g = state.g;
   const s = grindScore(C, g, state.cols);
@@ -1422,7 +1437,6 @@ function setup() {
   gs.addEventListener("pointermove", (e) => pressAt(e, Boolean(state.press?.down)));
   gs.addEventListener("pointerup", (e) => pressAt(e, false));
   gs.addEventListener("pointercancel", (e) => pressAt(e, false));
-  gs.addEventListener("wheel", wheelTilt, { passive: false });
   $("dunk").addEventListener("pointerdown", (e) => { e.preventDefault(); doDunk(e.timeStamp); });
   addEventListener("keyup", (e) => {
     if (state.phase === "grind") {
@@ -1466,8 +1480,8 @@ function setup() {
       else if (k === "c") doDunk(e.timeStamp);
       else if (k === "arrowleft" || k === "a") steerBlade(e.timeStamp, -KEY_X, null);
       else if (k === "arrowright" || k === "d") steerBlade(e.timeStamp, KEY_X, null);
-      else if (k === "arrowup" || k === "w") steerBlade(e.timeStamp, null, -KEY_TILT);
-      else if (k === "arrowdown" || k === "s") steerBlade(e.timeStamp, null, KEY_TILT);
+      else if (k === "arrowup" || k === "w") steerBlade(e.timeStamp, null, -1);
+      else if (k === "arrowdown" || k === "s") steerBlade(e.timeStamp, null, 1);
       else return;
       e.preventDefault();
       return;
