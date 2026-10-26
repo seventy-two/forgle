@@ -589,13 +589,14 @@ function buildGrinder() {
   state.cols = curveCols(geometry(BLADE, widths, lengths, C.billet, C.stock), gscene.sy);
   const T = gscene.tall;
   // The scene is drawn upright (see world below): the sword point up, the
-  // grinder on the right. It's tall enough to keep most of the sword in
-  // view wherever it's held, and as wide as the page allows, the belt's
-  // face about two thirds of the way across.
+  // grinder on the right. It shows a bit under the blade's length, centred
+  // on the belt, and is as wide as the page allows, the belt's face about
+  // two thirds of the way across.
   const box = svg.getBoundingClientRect();
-  const H = 1.4 * L;
+  const H = 0.9 * L;
+  gscene.H = H;
   const W = box.height > 0 ? (H * box.width) / box.height : 0.6 * L;
-  svg.setAttribute("viewBox", `${-0.65 * W} ${-0.6 * L} ${W} ${H}`);
+  svg.setAttribute("viewBox", `${-0.65 * W} ${-H / 2} ${W} ${H}`);
   // How far from the belt the edge can be held, leaving the sword in view.
   gscene.away = Math.max(0.3 * T, 0.65 * W - 1.8 * tall);
 
@@ -713,6 +714,8 @@ function moveBlade(x, y) {
   p.y = Math.min(top, low === null ? y : Math.max(low - give(state.cols), y));
 }
 
+const ALONG = 1.5;
+
 // grabAt handles the pointer: press anywhere to take hold of the blade,
 // and it follows the pointer until let go.
 function grabAt(e, phase) {
@@ -729,8 +732,10 @@ function grabAt(e, phase) {
     if (low !== null) moveBlade(p.x, Math.max(p.y, low + (0.08 * gscene.tall) / gscene.sy));
   }
   // The world is turned upright: down the screen is along the blade to the
-  // point's side of the belt, right is into the belt.
-  else if (p.drag) moveBlade(p.drag.x + (pt.y - p.drag.py) / gscene.L, p.drag.y - (pt.x - p.drag.px) / gscene.sy);
+  // point's side of the belt, right is into the belt. Along the blade it
+  // moves faster than the pointer, so two thirds of the scene's height
+  // covers the whole blade.
+  else if (p.drag) moveBlade(p.drag.x + (ALONG * (pt.y - p.drag.py)) / gscene.H, p.drag.y - (pt.x - p.drag.px) / gscene.sy);
   $("gscene").classList.toggle("holding", Boolean(p.drag));
 }
 

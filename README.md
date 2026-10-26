@@ -39,7 +39,9 @@ with an even 1 mm edge.
   the scene; the player holds the sword upright, point up, and drags it
   around: up and down to run it along the belt, right to push the edge in
   (or ↑ ↓ ← →). The sword is drawn as on the commission, true to life with
-  its hilt. The belt is
+  its hilt; the scene shows 0.9 of the blade's length around the belt, and
+  along the blade it moves 1.5 times as far as the pointer, so one drag
+  covers the whole blade. The belt is
   8% of the blade's length wide.
 - Wherever the edge is pushed onto the belt, the bevel there climbs, at up
   to 1.2 of the span a second, with the square of how far it's pushed in
