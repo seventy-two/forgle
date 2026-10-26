@@ -9,7 +9,7 @@
 
 import { outline } from "./blades.js";
 
-export const GRIND_TIME = 45; // seconds on the clock
+export const GRIND_TIME = 55; // seconds on the clock
 export const COLUMNS = 40; // the blade is ground in this many strips, tang to point
 export const BELT = 0.08; // how much of the blade's length the belt is wide
 export const GIVE = 0.4; // how far the belt gives, as a share of the blade's widest span
@@ -95,7 +95,8 @@ export function lowest(g, cols, x) {
 // centre x along the blade (a share of its length) and its top at y (mm,
 // in the down edge's frame), and returns the new state. Every strip over
 // the belt whose edge is pushed past its top climbs at RATE times how far
-// it's pushed in (out of give).
+// it's pushed in (out of give), squared: a light touch grinds slowly, for
+// easing up to the line.
 export function grind(g, cols, hold, t1) {
   const from = Math.max(hold.at, g.flippedAt + FLIP_TIME);
   if (t1 <= from) return g;
@@ -108,7 +109,7 @@ export function grind(g, cols, hold, t1) {
       if (!underBelt(c, hold.x)) continue;
       const pen = Math.min(pen0, edgeDown(c, g.down) - hold.y);
       if (pen <= 0) continue;
-      line[j] = Math.min(1, line[j] + (RATE * pen * DT) / pen0);
+      line[j] = Math.min(1, line[j] + RATE * (pen / pen0) ** 2 * DT);
       changed = true;
     }
   }

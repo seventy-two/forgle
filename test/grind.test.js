@@ -43,12 +43,12 @@ test("only the strips over the belt with their edge pushed onto it grind", () =>
   assert.equal(lowest(newGrind(c.bevel), cols, 1.2), null);
 });
 
-test("pushing harder grinds faster, up to as far as the belt gives", () => {
+test("pushing harder grinds faster (with the square of how far), up to as far as the belt gives", () => {
   const j = 20;
   const x = cols[j].x;
   const at = (pen) => grind(newGrind(c.bevel), cols, { x, y: cols[j].edge - pen, at: 0 }, 0.5).lines[0][j];
   assert.ok(Math.abs(at(PEN) - RATE * 0.5) < 2 * RATE * DT);
-  assert.ok(Math.abs(at(PEN / 2) - (RATE * 0.5) / 2) < 2 * RATE * DT);
+  assert.ok(Math.abs(at(PEN / 2) - (RATE * 0.5) / 4) < 2 * RATE * DT);
   assert.equal(at(2 * PEN), at(PEN));
   // And never past the spine.
   assert.equal(grind(newGrind(c.bevel), cols, { x, y: cols[j].edge - PEN, at: 0 }, 60).lines[0][j], 1);
@@ -133,9 +133,10 @@ test("a steady player sweeping along, lifting where it's done, grinds it in time
       }
       const need = (j) => g.lines[g.down][j] < k.bevel - 0.03;
       while (t < GRIND_TIME && cs.some((_, j) => j < COLUMNS - 3 && need(j))) {
-        // Push halfway in over the strips still to do, as far as the belt gives.
-        const under = cs.filter((col, j) => underBelt(col, x) && need(j));
-        let y = under.length ? Math.max(...under.map((col) => edgeDown(col, g.down))) - most / 2 : Infinity;
+        // Push hard over the strips still to do, lightly once they're close.
+        const todo = cs.map((col, j) => j).filter((j) => underBelt(cs[j], x) && need(j));
+        const close = todo.some((j) => g.lines[g.down][j] > k.bevel - 0.12);
+        let y = todo.length ? Math.max(...todo.map((j) => edgeDown(cs[j], g.down))) - most * (close ? 0.4 : 0.85) : Infinity;
         const low = lowest(g, cs, x);
         if (low !== null) y = Math.max(y, low - most);
         g = grind(g, cs, { x, y, at: t }, t + step);

@@ -39,7 +39,8 @@ with an even 1 mm edge.
   drags the blade around it (or moves it with the arrow keys). The belt is
   8% of the blade's length wide.
 - Wherever the edge is pushed onto the belt, the bevel there climbs, at up
-  to 1.2 of the span a second, in proportion to how far it's pushed in.
+  to 1.2 of the span a second, with the square of how far it's pushed in
+  (a light touch grinds slowly). Letting go lifts the blade clear.
   It's a slack belt: it gives by up to 40% of the blade's widest span, so
   nearby parts of a curved edge touch too, more lightly; the blade can't be
   pushed in further.
@@ -50,7 +51,7 @@ with an even 1 mm edge.
   over 1.3 mm, green to 0.7, amber to 0.6, red below (it may crack), and a
   red dotted line marks the height where it gets there.
 - Double-edged blades are turned over (F) to grind the other edge.
-- 45 seconds. 60% for the lines, weighted by the blade's width so the
+- 55 seconds. 60% for the lines, weighted by the blade's width so the
   point counts little, and 40% for the edge (1 mm ± 0.3). Strips under
   0.6 mm are kept for the quench.
 

@@ -689,7 +689,12 @@ function grabAt(e, phase) {
   const pt = scenePoint(e);
   if (!pt) return;
   if (phase === "down") p.drag = { px: pt.x, py: pt.y, x: p.x, y: p.y };
-  else if (phase === "up") p.drag = null;
+  else if (phase === "up") {
+    // Letting go lifts the blade clear of the belt.
+    p.drag = null;
+    const low = lowest(state.g, state.cols, p.x);
+    if (low !== null) moveBlade(p.x, Math.max(p.y, low + (0.08 * gscene.tall) / gscene.sy));
+  }
   else if (p.drag) moveBlade(p.drag.x - (pt.x - p.drag.px) / gscene.L, p.drag.y - (pt.y - p.drag.py) / gscene.sy);
   $("gscene").classList.toggle("holding", Boolean(p.drag));
 }
