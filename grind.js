@@ -1,32 +1,37 @@
-// The grind stage's rules: tracing the bevel line on the belt and thinning
-// the edge. The belt runs back and forth along the blade by itself; the
-// player holds the blade to it at a height. Everything is pure and comes
-// from event times: the time between two events is sampled on a fixed grid
-// of absolute times, so it doesn't matter how often the page asks.
+// The grind stage's rules: grinding the bevels on a belt grinder. The belt
+// stays put; the player draws the blade across it, pressed to the belt at
+// a tilt. The belt is a flat plane, so every moment pressed cuts each strip
+// under it down to a plane at that tilt: the bevel's height isn't drawn, it
+// comes from how much steel is taken off at what angle (a shallow tilt runs
+// the bevel high, a steep one keeps it low). Steel under the belt heats,
+// thin steel fastest, and cools in the air or in the bucket. Everything is
+// pure and comes from event times: the time between two events is sampled
+// on a fixed grid of absolute times, so it doesn't matter how often the
+// page asks.
 
 import { outline } from "./blades.js";
 
-export const GRIND_TIME = 40; // seconds on the clock for both sides
+export const GRIND_TIME = 45; // seconds on the clock for both sides
 export const COLUMNS = 40; // the blade is ground in this many strips, tang to point
-export const SWEEP = 2.2; // seconds for the belt to run from one end of the blade to the other
+export const LEVELS = 25; // each strip's face is followed at this many heights, edge to spine
 export const BELT = 0.08; // how much of the blade's length the belt covers at once
-export const RATE = 2.4; // mm of edge ground away per second under the belt, per side
+export const OVERRUN = 0.04; // how far the blade can be drawn past either end of the belt
+export const RATE = 3.2; // mm a second the belt cuts into steel pressed to it
 export const EDGE = 1.0; // mm: the edge to leave before the quench
 export const EDGE_OK = 0.3; // mm either side of it that's fine
 export const SIDE_OK = EDGE_OK / 2; // and for each side's share
 export const THIN = 0.6; // mm: thinner than this and the edge may crack in the quench
 export const FLIP_TIME = 0.8; // seconds to turn the blade over
+export const DUNK_TIME = 1.0; // seconds to cool it in the bucket
+export const TILT = [1, 15]; // degrees the blade can be tilted to the belt, from the face
+export const START_TILT = 9; // degrees it starts at: steep, so the bevel starts low
+export const HEAT = 1.5; // how fast steel under the belt heats, per second, for a 1 mm edge
+export const COOL = 3; // seconds for steel off the belt to lose most of its heat (time constant)
+export const BLUE = 1; // heat at which the edge blues: about 300°C
 export const DT = 0.005; // the sampling grid, in seconds
 
-export const OVERRUN = 0.02; // the belt runs this far past each end, so the ends get ground about as much as the middle
-
-// beltAt is where the belt's centre is along the blade at time t, as a share
-// of the blade's length.
-export function beltAt(t) {
-  const phase = (((t / (2 * SWEEP)) % 1) + 1) % 1;
-  const tri = phase < 0.5 ? phase * 2 : 2 - phase * 2;
-  return -OVERRUN + (1 + 2 * OVERRUN) * tri;
-}
+const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
+const clamp01 = (x) => clamp(x, 0, 1);
 
 // geometry describes each strip of a forged blade: where it is along the
 // blade (x, a share of the length), where its edge is (edge, mm, y down)
@@ -57,77 +62,148 @@ export function geometry(blade, widths, lengths, ref, stock) {
   return cols;
 }
 
+// newGrind is the blade as it comes off the anvil. faces[side][j][k] is how
+// much steel (mm) has been ground off that side of strip j at height k (0
+// at the edge, LEVELS - 1 at the spine); lines is how high each side's
+// bevel reaches, as a share of the span; heat is each strip's heat (BLUE
+// is too hot) and peak the most it has had, which its colour keeps.
 export function newGrind() {
+  const faces = () => Array.from({ length: COLUMNS }, () => Array(LEVELS).fill(0));
   return {
     side: 0,
-    lines: [Array(COLUMNS).fill(0), Array(COLUMNS).fill(0)], // how high each side's grind reaches, as a share of the span
-    depth: [Array(COLUMNS).fill(0), Array(COLUMNS).fill(0)], // mm ground off each side's edge
+    faces: [faces(), faces()],
+    lines: [Array(COLUMNS).fill(0), Array(COLUMNS).fill(0)],
+    heat: Array(COLUMNS).fill(0),
+    peak: Array(COLUMNS).fill(0),
     flippedAt: -Infinity,
+    dunkedAt: -Infinity,
   };
 }
 
-// sideLeft is how much is still to grind off one side of strip j: each
-// side takes half of what has to come off, so the two stay even.
+// perfectGrind is a blade ground exactly: both sides cut in one flat bevel
+// from a 1 mm edge to the commission's line, never too hot.
+export function perfectGrind(cols, bevel) {
+  const g = newGrind();
+  for (let j = 0; j < COLUMNS; j++) {
+    const c = cols[j];
+    const d = (c.stock - EDGE) / 2;
+    const face = Array.from({ length: LEVELS }, (_, k) => Math.max(0, d * (1 - k / (LEVELS - 1) / bevel)));
+    g.faces[0][j] = face;
+    g.faces[1][j] = [...face];
+    g.lines[0][j] = g.lines[1][j] = bevel;
+  }
+  return { ...g, side: 1 };
+}
+
+// depth is how much has been ground off one side of strip j's edge.
+export function depth(g, j, side) {
+  return g.faces[side][j][0];
+}
+
+// sideLeft is how much is still to grind off one side of strip j's edge:
+// each side takes half of what has to come off, so the two stay even.
 export function sideLeft(g, cols, j, side) {
-  return (cols[j].stock - EDGE) / 2 - g.depth[side][j];
+  return (cols[j].stock - EDGE) / 2 - depth(g, j, side);
 }
 
 // edgeLeft is how thick strip j's edge is now.
 export function edgeLeft(g, cols, j) {
-  return Math.max(0, cols[j].stock - g.depth[0][j] - g.depth[1][j]);
+  return Math.max(0, cols[j].stock - depth(g, j, 0) - depth(g, j, 1));
 }
 
-// heightAt is where the hold is at time s, for a hold at y at time t0
-// moving at vy mm a second (the arrow keys), kept within [lo, hi].
-export function heightAt(y, vy, t0, s, lo = -Infinity, hi = Infinity) {
-  return Math.max(lo, Math.min(hi, y + vy * (s - t0)));
+// tiltFor is the tilt (degrees) that grinds strip j's bevel to height h (a
+// share of the span) just as its edge reaches 1 mm.
+export function tiltFor(col, h) {
+  return (Math.atan((col.stock - EDGE) / 2 / (h * col.span)) * 180) / Math.PI;
 }
 
-// grind holds the blade to the belt from t0 to t1 with its edge y (mm, in
-// the blade's own coordinates; null for not pressing), moving at vy mm a
-// second within [lo, hi], and returns the new state. Strips under the belt
-// with the hold above their edge are ground up to it, and their edge thinned.
-export function grind(g, cols, t0, t1, y, vy = 0, lo = -Infinity, hi = Infinity) {
-  if (y === null || y === undefined || t1 <= t0) return g;
+// touch is where the belt, tilted t (the tangent of the tilt), first meets
+// a face: the plane's depth at the edge, a, for the plane that cuts
+// a - y·t at height y. A fresh face is met at the edge; a face already
+// ground steeper is met at its shoulder.
+export function touch(face, span, t) {
+  let a = Infinity;
+  for (let k = 0; k < LEVELS; k++) a = Math.min(a, face[k] + (k / (LEVELS - 1)) * span * t);
+  return a;
+}
+
+// The hold: whether the blade is pressed to the belt (down), where the
+// belt's centre is along it (x, a share of the length) and its tilt
+// (degrees), each moving at vx and vt a second (the keys), within bounds.
+export const X_RANGE = [-OVERRUN, 1 + OVERRUN];
+
+export function holdAt(hold, s) {
+  const dt = s - hold.at;
+  return {
+    ...hold,
+    x: clamp(hold.x + (hold.vx || 0) * dt, X_RANGE[0], X_RANGE[1]),
+    tilt: clamp(hold.tilt + (hold.vt || 0) * dt, TILT[0], TILT[1]),
+    at: s,
+  };
+}
+
+// grind runs the grinder from the hold's time to t1 and returns the new
+// state. Strips under the belt while it's pressed (not while turning it
+// over or dunking it) are cut to the belt's plane and heat; every strip
+// cools.
+export function grind(g, cols, hold, t1) {
+  const t0 = hold.at;
+  if (t1 <= t0) return g;
+  const faces = [g.faces[0], g.faces[1]].map((f) => [...f]);
+  const lines = [[...g.lines[0]], [...g.lines[1]]];
+  const heat = [...g.heat];
+  const peak = [...g.peak];
   const side = g.side;
-  const line = [...g.lines[side]];
-  const depth = [...g.depth[side]];
-  const other = g.depth[1 - side];
-  const from = Math.max(t0, g.flippedAt + FLIP_TIME);
-  for (let k = Math.floor(from / DT) + 1; k * DT <= t1; k++) {
-    const u = beltAt(k * DT);
-    const ys = heightAt(y, vy, t0, k * DT, lo, hi);
+  const busy = Math.max(g.flippedAt + FLIP_TIME, g.dunkedAt + DUNK_TIME);
+  const decay = Math.exp(-DT / COOL);
+  const copied = new Set();
+  for (let k = Math.floor(t0 / DT) + 1; k * DT <= t1; k++) {
+    const s = k * DT;
+    for (let j = 0; j < COLUMNS; j++) heat[j] *= decay;
+    if (!hold.down || s < busy) continue;
+    const { x, tilt } = holdAt(hold, s);
+    const t = Math.tan((tilt * Math.PI) / 180);
     for (let j = 0; j < COLUMNS; j++) {
       const c = cols[j];
-      if (Math.abs(c.x - u) > BELT / 2) continue;
-      const h = (c.edge - ys) / c.span;
-      if (h <= 0) continue; // held below the edge: not touching
-      line[j] = Math.max(line[j], Math.min(1, h));
-      depth[j] = Math.min(c.stock - other[j], depth[j] + RATE * DT);
+      if (Math.abs(c.x - x) > BELT / 2) continue;
+      if (!copied.has(j)) {
+        faces[side][j] = [...faces[side][j]];
+        copied.add(j);
+      }
+      const face = faces[side][j];
+      const other = faces[1 - side][j];
+      const a = touch(face, c.span, t) + RATE * DT;
+      for (let i = 0; i < LEVELS; i++) {
+        const cut = Math.min(a - (i / (LEVELS - 1)) * c.span * t, c.stock - other[i]);
+        if (cut > face[i]) face[i] = cut;
+      }
+      lines[side][j] = Math.max(lines[side][j], Math.min(1, a / t / c.span));
+      const thick = Math.max(0.3, c.stock - face[0] - other[0]);
+      heat[j] += (HEAT * DT) / thick;
+      peak[j] = Math.max(peak[j], heat[j]);
     }
   }
-  const lines = [...g.lines];
-  const depths = [...g.depth];
-  lines[side] = line;
-  depths[side] = depth;
-  return { ...g, lines, depth: depths };
+  return { ...g, faces, lines, heat, peak };
 }
 
 export function flip(g, t) {
   return { ...g, side: 1 - g.side, flippedAt: t };
 }
 
-const clamp01 = (x) => Math.max(0, Math.min(1, x));
+// dunk cools the blade in the bucket. Its colour stays.
+export function dunk(g, t) {
+  return { ...g, heat: Array(COLUMNS).fill(0), dunkedAt: t };
+}
 
 // grindScore is 0–100: 60% for how closely both sides' lines follow the
 // bevel (every 1% of the span off on average costs 8.3 points of it; each
 // strip counts by its span, so the point, where the height of a line means
-// little, counts little) and
-// 40% for the edge (every 0.1 mm outside EDGE ± EDGE_OK on average costs
-// 12.5 points of it). It also counts the strips thin enough to crack and
-// how unevenly the two sides were ground, for the quench.
+// little, counts little) and 40% for the edge (every 0.1 mm outside
+// EDGE ± EDGE_OK on average costs 12.5 points of it, and each blued strip a
+// share). It also counts the strips thin or hot enough to crack and how
+// unevenly the two sides were ground, for the quench.
 export function grindScore(c, g, cols) {
-  let lineErr = 0, edgeErr = 0, thin = 0, uneven = 0, spans = 0;
+  let lineErr = 0, edgeErr = 0, thin = 0, blued = 0, uneven = 0, spans = 0;
   for (let j = 0; j < COLUMNS; j++) {
     const w = cols[j].span;
     lineErr += w * (Math.abs(g.lines[0][j] - c.bevel) + Math.abs(g.lines[1][j] - c.bevel));
@@ -135,12 +211,13 @@ export function grindScore(c, g, cols) {
     const e = edgeLeft(g, cols, j);
     edgeErr += Math.max(0, Math.abs(e - EDGE) - EDGE_OK);
     if (e < THIN) thin++;
-    uneven += Math.abs(g.depth[0][j] - g.depth[1][j]);
+    if (g.peak[j] >= BLUE) blued++;
+    uneven += Math.abs(depth(g, j, 0) - depth(g, j, 1));
   }
   lineErr /= 2 * spans;
   edgeErr /= COLUMNS;
   const line = 100 * clamp01(1 - lineErr / 0.12);
-  const edge = 100 * clamp01(1 - edgeErr / 0.8);
+  const edge = 100 * clamp01(1 - edgeErr / 0.8 - blued / COLUMNS);
   return {
     score: Math.round(0.6 * line + 0.4 * edge),
     line: Math.round(line),
@@ -148,6 +225,7 @@ export function grindScore(c, g, cols) {
     lineErr,
     edgeErr,
     thin,
+    blued,
     uneven: uneven / COLUMNS,
   };
 }
