@@ -35,8 +35,9 @@ with an even 1 mm edge.
 
 ## The grind
 
-- The forged blade goes to a belt grinder that stays put; the player
-  drags the blade around it (or moves it with the arrow keys). The belt is
+- The forged blade goes to a belt grinder that stays put, hanging from the
+  top of the scene; the player drags the blade around under it, edge up as
+  on a real grinder (or moves it with the arrow keys). The belt is
   8% of the blade's length wide.
 - Wherever the edge is pushed onto the belt, the bevel there climbs, at up
   to 1.2 of the span a second, with the square of how far it's pushed in
