@@ -580,17 +580,18 @@ function buildGrinder() {
   const L = shape.length;
   const ys = [...shape.top, ...shape.bottom].map(([, y]) => y);
   const tall = Math.max(...ys) - Math.min(...ys);
-  // Draw the blade taller than life, but only about a sixth as tall as
-  // it's long, so it still looks like itself.
-  gscene.sy = Math.min(3, Math.max(1.2, (0.17 * L) / tall));
+  // Drawn true to life, as on the commission. tall is the scene's unit of
+  // height: the blade's, but at least a tenth of its length, so a slim
+  // blade still has room to move.
+  gscene.sy = 1;
   gscene.L = L;
-  gscene.tall = tall * gscene.sy + DROP - LIFT;
+  gscene.tall = Math.max(tall + DROP - LIFT, 0.1 * L);
   state.cols = curveCols(geometry(BLADE, widths, lengths, C.billet, C.stock), gscene.sy);
   const T = gscene.tall;
-  // The scene is drawn upside down (see world below), the grinder hanging
+  // The scene is drawn turned over (see world below), the grinder hanging
   // from the top, and wide enough to keep most of the blade in view
   // wherever it's held.
-  svg.setAttribute("viewBox", `${-0.85 * L} ${-0.65 * T} ${1.7 * L} ${2.15 * T}`);
+  svg.setAttribute("viewBox", `${-0.7 * L} ${-0.6 * T} ${1.4 * L} ${2 * T}`);
 
   // The grinder: a belt round a wheel, in front of the blade so an edge
   // pushed in sinks into it.
@@ -605,9 +606,22 @@ function buildGrinder() {
   );
   gscene.blade = el("g", { class: "held" });
   const steel = el("path", { class: "steel", d: outlinePath(shape, { sy: gscene.sy, bend: BEND }) });
-  // A stub of tang, so it reads as a sword.
-  const [y0, y1] = [shape.top[0][1], shape.bottom[0][1]].map((y) => y * gscene.sy);
-  const tang = el("rect", { class: "tang", x: -0.12 * L, width: 0.12 * L, y: (y0 + y1) / 2 - 0.18 * (y1 - y0), height: 0.36 * (y1 - y0) });
+  // Its hilt, as on the commission: the guard over the blade, the rest
+  // behind it.
+  const h = hilt(C.blade, C.width, L, (shape.top[0][1] + shape.bottom[0][1]) / 2);
+  let clips = 0;
+  const part = (p) => {
+    const e = el(p.tag, { class: p.cls });
+    for (const [k, v] of Object.entries(p.attrs)) if (k !== "clip") e.setAttribute(k, v);
+    if (p.attrs.clip) {
+      const id = `gclip-${clips++}`;
+      const cp = el("clipPath", { id });
+      cp.append(el("path", { d: p.attrs.clip }));
+      defs.append(cp);
+      e.setAttribute("clip-path", `url(#${id})`);
+    }
+    return e;
+  };
   // Each edge's ground bevel is coloured strip by strip for how thick its
   // edge is (see EDGE_COLOURS).
   const defs = el("defs");
@@ -624,13 +638,15 @@ function buildGrinder() {
   gscene.line = [el("path", { class: "line" }), el("path", { class: "line" })];
   const goal = el("path", { class: "goal" });
   const limit = el("path", { class: "limit" });
-  gscene.blade.append(defs, tang, steel, ...gscene.ground, limit, goal, ...gscene.line);
+  gscene.blade.append(defs, ...h.parts.filter((p) => !p.front).map(part), steel, ...gscene.ground, limit, goal, ...gscene.line);
+  gscene.blade.append(...h.parts.filter((p) => p.front).map(part));
   const each = (f) => linePath(f, 0) + (BLADE.edges === 2 ? linePath(f, 1) : "");
   goal.setAttribute("d", each(state.cols.map(() => C.bevel)));
   // Past this the edge is thin enough to crack.
   limit.setAttribute("d", each(state.cols.map((c) => Math.min(1, heightFor(c, THIN, C.bevel)))));
-  // Upside down: the edge turned up to the belt, as on a real grinder.
-  const world = el("g", { transform: "scale(1 -1)" });
+  // Turned over: the edge up to the belt, as on a real grinder, and the
+  // point to the left.
+  const world = el("g", { transform: "scale(-1 -1)" });
   world.append(gscene.blade, grinder);
   svg.replaceChildren(world);
   $("flip").hidden = BLADE.edges !== 2;
@@ -707,7 +723,7 @@ function grabAt(e, phase) {
     const low = lowest(state.g, state.cols, p.x);
     if (low !== null) moveBlade(p.x, Math.max(p.y, low + (0.08 * gscene.tall) / gscene.sy));
   }
-  else if (p.drag) moveBlade(p.drag.x - (pt.x - p.drag.px) / gscene.L, p.drag.y + (pt.y - p.drag.py) / gscene.sy);
+  else if (p.drag) moveBlade(p.drag.x + (pt.x - p.drag.px) / gscene.L, p.drag.y + (pt.y - p.drag.py) / gscene.sy);
   $("gscene").classList.toggle("holding", Boolean(p.drag));
 }
 
@@ -1391,8 +1407,8 @@ function setup() {
     if (state.phase === "grind") {
       const k = e.key.toLowerCase();
       if (k === "f") doFlip(e.timeStamp);
-      else if (k === "arrowleft" || k === "a") steerBlade(KEY_X, null);
-      else if (k === "arrowright" || k === "d") steerBlade(-KEY_X, null);
+      else if (k === "arrowleft" || k === "a") steerBlade(-KEY_X, null);
+      else if (k === "arrowright" || k === "d") steerBlade(KEY_X, null);
       else if (k === "arrowup" || k === "w") steerBlade(null, -KEY_Y);
       else if (k === "arrowdown" || k === "s") steerBlade(null, KEY_Y);
       else return;

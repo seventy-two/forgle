@@ -90,23 +90,23 @@ h1 { font-size: clamp(1.6rem, 6vw, 2rem); line-height: 1; margin: 0; letter-spac
 .brief h2 { margin: 6px 0 0; font-size: 1.4rem; line-height: 1.2; letter-spacing: -0.03em; font-weight: 400; }
 .sword { display: block; width: 100%; height: auto; margin: 14px 0 6px; overflow: visible; }
 .sword .steel { fill: #c9ccd1; stroke: #5d6168; stroke-width: 1; vector-effect: non-scaling-stroke; }
-.sword .hilt { fill: #4a3022; }
-.sword .wood { fill: #7a5536; }
-.sword .fitting { fill: #9a9da2; stroke: #5d6168; stroke-width: 1; vector-effect: non-scaling-stroke; }
-.sword .brass { fill: #b8913f; stroke: #7a5f24; stroke-width: 1; vector-effect: non-scaling-stroke; }
-.sword .iron { fill: #3b3a38; stroke: #1f1e1d; stroke-width: 1; vector-effect: non-scaling-stroke; }
-.sword .hilt, .sword .wood { stroke: rgba(0, 0, 0, 0.35); stroke-width: 1; vector-effect: non-scaling-stroke; }
-.sword .wrap { fill: none; stroke: rgba(0, 0, 0, 0.4); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
-.sword .rib { fill: none; stroke: rgba(0, 0, 0, 0.35); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.sword .hilt, .grinder .hilt { fill: #4a3022; }
+.sword .wood, .grinder .wood { fill: #7a5536; }
+.sword .fitting, .grinder .fitting { fill: #9a9da2; stroke: #5d6168; stroke-width: 1; vector-effect: non-scaling-stroke; }
+.sword .brass, .grinder .brass { fill: #b8913f; stroke: #7a5f24; stroke-width: 1; vector-effect: non-scaling-stroke; }
+.sword .iron, .grinder .iron { fill: #3b3a38; stroke: #1f1e1d; stroke-width: 1; vector-effect: non-scaling-stroke; }
+.sword .hilt, .sword .wood, .grinder .hilt, .grinder .wood { stroke: rgba(0, 0, 0, 0.35); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.sword .wrap, .grinder .wrap { fill: none; stroke: rgba(0, 0, 0, 0.4); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+.sword .rib, .grinder .rib { fill: none; stroke: rgba(0, 0, 0, 0.35); stroke-width: 2; vector-effect: non-scaling-stroke; }
 .sword .ito { fill: none; stroke: #23232a; stroke-width: 3; vector-effect: non-scaling-stroke; }
 @media (prefers-color-scheme: dark) {
   .sword .steel { fill: #b9bdc3; stroke: #e2e4e7; }
-  .sword .hilt { fill: #6a4630; }
-  .sword .wood { fill: #8f6640; }
-  .sword .fitting { fill: #a7aaaf; stroke: #d9dbde; }
-  .sword .iron { fill: #4a4946; stroke: #77746f; }
+  .sword .hilt, .grinder .hilt { fill: #6a4630; }
+  .sword .wood, .grinder .wood { fill: #8f6640; }
+  .sword .fitting, .grinder .fitting { fill: #a7aaaf; stroke: #d9dbde; }
+  .sword .iron, .grinder .iron { fill: #4a4946; stroke: #77746f; }
   .sword .ito { stroke: #2b2e3b; }
-  .sword .hilt, .sword .wood { stroke: rgba(255, 255, 255, 0.22); }
+  .sword .hilt, .sword .wood, .grinder .wood { stroke: rgba(255, 255, 255, 0.22); }
 }
 .about { margin: 4px 0 0; color: var(--ink-2); font-size: 0.9rem; }
 .spec { display: grid; grid-template-columns: auto 1fr; gap: 8px 16px; margin: 16px 0 18px; padding-top: 14px; border-top: 1px solid var(--line); font-size: 0.9rem; }
@@ -243,7 +243,6 @@ dialog .primary { width: 100%; }
 .scene.grinder.holding { cursor: grabbing; }
 .grinder svg { overflow: hidden; }
 .grinder .steel { fill: #8b9097; }
-.grinder .tang { fill: #3a3633; }
 .grinder .ground { fill: #d5d9de; }
 .grinder .goal { fill: none; stroke: #ffb27a; stroke-width: 1.5; stroke-dasharray: 5 4; vector-effect: non-scaling-stroke; }
 .grinder .limit { fill: none; stroke: #ff5a4a; stroke-width: 1.5; stroke-dasharray: 1 3; stroke-linecap: round; vector-effect: non-scaling-stroke; }
