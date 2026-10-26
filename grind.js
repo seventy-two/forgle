@@ -129,6 +129,20 @@ export function thickness(c, line, bevel) {
   return Math.max(0, c.stock - ((c.stock - EDGE) * line) / bevel);
 }
 
+// heightFor is how high strip c's bevel is when its edge is t mm thick:
+// thickness turned round.
+export function heightFor(c, t, bevel) {
+  return (bevel * (c.stock - t)) / (c.stock - EDGE);
+}
+
+// edgeState says how an edge t mm thick is doing: still thick, ok (within
+// EDGE ± EDGE_OK), over (thinner than that) or thin (enough to crack).
+export function edgeState(t) {
+  if (t > EDGE + EDGE_OK) return "thick";
+  if (t >= EDGE - EDGE_OK) return "ok";
+  return t >= THIN ? "over" : "thin";
+}
+
 // edgeLeft is how thick strip j's edge is now; a double-edged blade gives
 // its thinner edge.
 export function edgeLeft(g, cols, j, edges = 1) {

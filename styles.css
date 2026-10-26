@@ -245,6 +245,7 @@ dialog .primary { width: 100%; }
 .grinder .steel { fill: #8b9097; }
 .grinder .ground { fill: #d5d9de; }
 .grinder .goal { fill: none; stroke: #ffb27a; stroke-width: 1.5; stroke-dasharray: 5 4; vector-effect: non-scaling-stroke; }
+.grinder .limit { fill: none; stroke: #ff5a4a; stroke-width: 1.5; stroke-dasharray: 1 3; stroke-linecap: round; vector-effect: non-scaling-stroke; }
 .grinder .line { fill: none; stroke: #ffffff; stroke-width: 1.5; vector-effect: non-scaling-stroke; }
 .grinder .belt { fill: #4a3c32; stroke: #6b5a4c; stroke-width: 1; vector-effect: non-scaling-stroke; }
 .grinder .grit { fill: none; stroke: #7d6a5a; stroke-width: 2; stroke-dasharray: 3 6; vector-effect: non-scaling-stroke; animation: belt 0.2s linear infinite; }

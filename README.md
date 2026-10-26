@@ -46,6 +46,9 @@ with an even 1 mm edge.
 - The edge thins as the bevel climbs, from its thickness off the anvil
   (2.9–4.5 mm, varying along the blade each day) to 1 mm as the bevel
   reaches the day's line, and on past it. Both faces are ground alike.
+  The ground bevel is coloured strip by strip for its edge: pale while
+  over 1.3 mm, green to 0.7, amber to 0.6, red below (it may crack), and a
+  red dotted line marks the height where it gets there.
 - Double-edged blades are turned over (F) to grind the other edge.
 - 45 seconds. 60% for the lines, weighted by the blade's width so the
   point counts little, and 40% for the edge (1 mm ± 0.3). Strips under

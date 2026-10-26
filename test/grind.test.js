@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   GRIND_TIME, COLUMNS, BELT, RATE, EDGE, FLIP_TIME, DT,
-  geometry, give, newGrind, perfectGrind, edgeDown, underBelt, lowest, grind, flip, thickness, edgeLeft, grindScore,
+  geometry, give, newGrind, perfectGrind, edgeDown, underBelt, lowest, grind, flip, thickness, heightFor, edgeState, edgeLeft, grindScore,
 } from "../grind.js";
 import { commission, dayKey, STOCK } from "../game.js";
 import { bladeById } from "../blades.js";
@@ -89,6 +89,14 @@ test("the edge reaches 1 mm as the bevel reaches the line", () => {
     assert.ok(Math.abs(thickness(col, c.bevel, c.bevel) - EDGE) < 1e-9);
     assert.ok(thickness(col, 1, c.bevel) < EDGE);
   }
+});
+
+test("the height for a thickness turns thickness round, and edges are judged by it", () => {
+  for (const col of cols) {
+    for (const t of [3, 1.3, 1, 0.6, 0.2]) assert.ok(Math.abs(thickness(col, heightFor(col, t, c.bevel), c.bevel) - t) < 1e-9);
+    assert.ok(heightFor(col, 0.6, c.bevel) > heightFor(col, EDGE, c.bevel));
+  }
+  assert.deepEqual([2, 1.3, 1, 0.7, 0.65, 0.6, 0.3].map(edgeState), ["thick", "ok", "ok", "ok", "over", "over", "thin"]);
 });
 
 test("a perfect grind scores 100, and mistakes cost", () => {

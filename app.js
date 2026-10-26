@@ -8,7 +8,7 @@ import { glowCSS, glowStrength, colourName } from "./glow.js";
 import { hilt } from "./hilts.js";
 import { crackLines } from "./crack.js";
 import {
-  GRIND_TIME, COLUMNS, BELT, FLIP_TIME, geometry, give, newGrind, perfectGrind, edgeDown, lowest, edgeLeft, grind, flip, grindScore,
+  GRIND_TIME, COLUMNS, BELT, FLIP_TIME, geometry, give, newGrind, perfectGrind, edgeDown, lowest, edgeLeft, thickness, heightFor, edgeState, THIN, grind, flip, grindScore,
 } from "./grind.js";
 import {
   HARDEN_TIME, TRANSFER, CRACK, KEY_STEER, DRAG_STEER, QUENCHES, htTemp, htSetFire, magnetSticks, quenchTemp,
@@ -584,7 +584,7 @@ function buildGrinder() {
   gscene.tall = tall * gscene.sy + DROP - LIFT;
   state.cols = curveCols(geometry(BLADE, widths, lengths, C.billet, C.stock), gscene.sy);
   const T = gscene.tall;
-  svg.setAttribute("viewBox", `${-0.6 * L} ${-1.35 * T} ${1.2 * L} ${2 * T}`);
+  svg.setAttribute("viewBox", `${-0.6 * L} ${-1.5 * T} ${1.2 * L} ${2.15 * T}`);
 
   // The grinder: an upright belt over a top wheel, in front of the blade so
   // an edge pushed in sinks into it.
@@ -599,14 +599,34 @@ function buildGrinder() {
   );
   gscene.blade = el("g", { class: "held" });
   const steel = el("path", { class: "steel", d: outlinePath(shape, { sy: gscene.sy, bend: BEND }) });
-  gscene.ground = [el("path", { class: "ground" }), el("path", { class: "ground" })];
+  // Each edge's ground bevel is coloured strip by strip for how thick its
+  // edge is (see EDGE_COLOURS).
+  const defs = el("defs");
+  gscene.stops = [0, 1].map((e) => {
+    const grad = el("linearGradient", { id: `gedge${e}`, gradientUnits: "userSpaceOnUse", x1: 0, x2: L, y1: 0, y2: 0 });
+    defs.append(grad);
+    return state.cols.map((c) => {
+      const stop = el("stop", { offset: c.x });
+      grad.append(stop);
+      return stop;
+    });
+  });
+  gscene.ground = [0, 1].map((e) => el("path", { class: "ground", style: `fill: url(#gedge${e})` }));
   gscene.line = [el("path", { class: "line" }), el("path", { class: "line" })];
   const goal = el("path", { class: "goal" });
-  gscene.blade.append(steel, ...gscene.ground, goal, ...gscene.line);
-  goal.setAttribute("d", linePath(state.cols.map(() => C.bevel), 0) + (BLADE.edges === 2 ? linePath(state.cols.map(() => C.bevel), 1) : ""));
+  const limit = el("path", { class: "limit" });
+  gscene.blade.append(defs, steel, ...gscene.ground, limit, goal, ...gscene.line);
+  const each = (f) => linePath(f, 0) + (BLADE.edges === 2 ? linePath(f, 1) : "");
+  goal.setAttribute("d", each(state.cols.map(() => C.bevel)));
+  // Past this the edge is thin enough to crack.
+  limit.setAttribute("d", each(state.cols.map((c) => Math.min(1, heightFor(c, THIN, C.bevel)))));
   svg.replaceChildren(gscene.blade, grinder);
   $("flip").hidden = BLADE.edges !== 2;
 }
+
+// EDGE_COLOURS colour the ground bevel: pale while the edge is still
+// thick, green once it's right, amber past that, red once it may crack.
+const EDGE_COLOURS = { thick: "#d5d9de", ok: "#8fd19e", over: "#ffb35a", thin: "#ff5a4a" };
 
 // lineY is where a line at height h (a share of the span) over edge e sits
 // over strip j, in the blade's drawn coordinates.
@@ -632,6 +652,9 @@ function drawGrind() {
   for (let e = 0; e < BLADE.edges; e++) {
     gscene.ground[e].setAttribute("d", groundPath(g.lines[e], e));
     gscene.line[e].setAttribute("d", linePath(g.lines[e], e));
+    g.lines[e].forEach((h, j) => {
+      gscene.stops[e][j].setAttribute("stop-color", EDGE_COLOURS[edgeState(thickness(state.cols[j], h, C.bevel))]);
+    });
   }
   // Turned over, the blade is mirrored about y = 0 (see edgeDown).
   const flipT = g.down ? " scale(1 -1)" : "";
@@ -653,7 +676,7 @@ function moveBlade(x, y) {
   const p = state.press;
   p.x = Math.max(-0.1, Math.min(1.1, x));
   const low = lowest(state.g, state.cols, p.x);
-  const top = maxEdge() + (1.1 * gscene.tall) / gscene.sy;
+  const top = maxEdge() + (0.4 * gscene.tall) / gscene.sy;
   p.y = Math.min(top, low === null ? y : Math.max(low - give(state.cols), y));
 }
 
