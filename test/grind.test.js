@@ -1,8 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  COLUMNS, LEVELS, BELT, RATE, EDGE, FLIP_TIME, DUNK_TIME, BLUE, DT, X_RANGE,
-  geometry, newGrind, perfectGrind, depth, sideLeft, edgeLeft, slope, touch, holdAt, grind, flip, dunk, grindScore,
+  GRIND_TIME, COLUMNS, BELT, RATE, EDGE, FLIP_TIME, DT,
+  geometry, give, newGrind, perfectGrind, edgeDown, underBelt, lowest, grind, flip, thickness, edgeLeft, grindScore,
 } from "../grind.js";
 import { commission, dayKey, STOCK } from "../game.js";
 import { bladeById } from "../blades.js";
@@ -10,10 +10,8 @@ import { bladeById } from "../blades.js";
 const c = commission("2026-10-15");
 const blade = bladeById[c.blade];
 const cols = geometry(blade, c.widths, c.lengths, c.billet, c.stock);
+const PEN = give(cols);
 const days = (n) => Array.from({ length: n }, (_, d) => dayKey(new Date(Date.UTC(2026, 9, 15 + d))));
-// aim is the y that aims strip j's bevel at height h (a share of its span).
-const aim = (j, h) => cols[j].edge - h * cols[j].span;
-const hold = (o) => ({ down: true, x: 0.5, y: aim(20, 0.4), vx: 0, vy: 0, at: 0, ...o });
 
 test("every commission's strips run tang to point with an edge to grind", () => {
   for (const key of days(60)) {
@@ -30,168 +28,116 @@ test("every commission's strips run tang to point with an edge to grind", () => 
   }
 });
 
-test("only the strips under the belt are ground, and only on this side", () => {
-  const g = grind(newGrind(), cols, hold({ x: 0.5 }), 1);
+test("only the strips over the belt with their edge pushed onto it grind", () => {
+  const x = 0.5;
+  const low = lowest(newGrind(c.bevel), cols, x);
+  const g = grind(newGrind(c.bevel), cols, { x, y: low - PEN / 2, at: 0 }, 1);
   for (let j = 0; j < COLUMNS; j++) {
-    const under = Math.abs(cols[j].x - 0.5) <= BELT / 2;
-    assert.equal(depth(g, j, 0) > 0, under, `strip ${j}`);
-    assert.equal(depth(g, j, 1), 0);
+    const touching = underBelt(cols[j], x) && edgeDown(cols[j], 0) > low - PEN / 2;
+    assert.equal(g.lines[0][j] > 0, touching, `strip ${j}`);
   }
+  assert.ok(cols.filter((col) => underBelt(col, x)).length >= BELT * COLUMNS - 1);
+  // Held clear of the belt, nothing.
+  assert.equal(grind(newGrind(c.bevel), cols, { x, y: low + 1, at: 0 }, 5).lines[0].every((h) => h === 0), true);
+  // Off the end of the blade, nothing.
+  assert.equal(lowest(newGrind(c.bevel), cols, 1.2), null);
 });
 
-test("held still, the belt cuts in at RATE, at the tilt aimed at", () => {
-  const j = 20;
-  const g = grind(newGrind(), cols, hold({ x: cols[j].x, y: aim(j, 0.5) }), 0.2);
-  const d = depth(g, j, 0);
-  assert.ok(Math.abs(d - RATE * 0.2) < 2 * RATE * DT, `cut ${d}`);
-  // A flat plane: the face falls away at the tilt, up to the line.
-  const tan = slope(cols[j], 0.5);
-  const h = d / tan;
-  assert.ok(Math.abs(g.lines[0][j] - h / cols[j].span) < 1e-9);
-  for (let k = 0; k < LEVELS; k++) {
-    const y = (k / (LEVELS - 1)) * cols[j].span;
-    assert.ok(Math.abs(g.faces[0][j][k] - Math.max(0, d - y * tan)) < 1e-9);
-  }
-});
-
-test("ground until this side's edge is done, the bevel reaches the aim", () => {
-  for (const j of [5, 20, 33]) {
-    for (const h of [0.3, 0.5, 0.8]) {
-      let g = newGrind();
-      let t = 0;
-      while (sideLeft(g, cols, j, 0) > 0) {
-        g = grind(g, cols, hold({ x: cols[j].x, y: aim(j, h), at: t }), t + DT);
-        t += DT;
-      }
-      assert.ok(Math.abs(g.lines[0][j] - h) < 0.02, `strip ${j} aimed ${h}: ${g.lines[0][j]}`);
-    }
-  }
-});
-
-test("a shallower pass after a steep one meets the shoulder first, leaving the edge", () => {
+test("pushing harder grinds faster, up to as far as the belt gives", () => {
   const j = 20;
   const x = cols[j].x;
-  const steep = grind(newGrind(), cols, hold({ x, y: aim(j, 0.2) }), 0.2);
-  const tan = slope(cols[j], 0.6);
-  // The shallow belt touches above the edge, so a short pass doesn't thin it.
-  assert.ok(touch(steep.faces[0][j], cols[j].span, tan) < depth(steep, j, 0));
-  const shallow = grind(steep, cols, hold({ x, y: aim(j, 0.6), at: 0.2 }), 0.25);
-  assert.equal(depth(shallow, j, 0), depth(steep, j, 0));
-  assert.ok(shallow.lines[0][j] > steep.lines[0][j]);
-  // Lines only go up: a steep pass never lowers one.
-  const back = grind(shallow, cols, hold({ x, y: aim(j, 0.1), at: 0.25 }), 0.3);
-  assert.ok(back.lines[0][j] >= shallow.lines[0][j]);
-});
-
-test("not pressing, or aiming below the edge, grinds nothing, and nothing grinds through the edge", () => {
-  const g = grind(newGrind(), cols, hold({ down: false }), 5);
-  assert.deepEqual(g.faces, newGrind().faces);
-  const below = grind(newGrind(), cols, hold({ y: Math.max(...cols.map((col) => col.edge)) + 1 }), 5);
-  assert.deepEqual(below.faces, newGrind().faces);
-  let long = grind(newGrind(), cols, hold({ x: cols[20].x }), 5);
-  long = grind(flip(long, 5), cols, hold({ x: cols[20].x, at: 5 }), 10);
-  for (let j = 0; j < COLUMNS; j++) assert.ok(edgeLeft(long, cols, j) >= 0);
-  assert.equal(edgeLeft(long, cols, 20), 0);
+  const at = (pen) => grind(newGrind(c.bevel), cols, { x, y: cols[j].edge - pen, at: 0 }, 0.5).lines[0][j];
+  assert.ok(Math.abs(at(PEN) - RATE * 0.5) < 2 * RATE * DT);
+  assert.ok(Math.abs(at(PEN / 2) - (RATE * 0.5) / 2) < 2 * RATE * DT);
+  assert.equal(at(2 * PEN), at(PEN));
+  // And never past the spine.
+  assert.equal(grind(newGrind(c.bevel), cols, { x, y: cols[j].edge - PEN, at: 0 }, 60).lines[0][j], 1);
 });
 
 test("splitting the time between events doesn't change the result", () => {
-  const h = hold({ x: 0.1, vx: 0.3, y: aim(10, 0.2), vy: -1.5, at: 0.013 });
-  const once = grind(newGrind(), cols, h, 2.7);
-  let many = newGrind();
-  let at = h;
+  const hold = { x: 0.3, y: lowest(newGrind(c.bevel), cols, 0.3) - 1, at: 0.013 };
+  const once = grind(newGrind(c.bevel), cols, hold, 2.7);
+  let many = newGrind(c.bevel);
+  let t = hold.at;
   for (const step of [0.016, 0.0331, 0.5, 0.0001, 1.2, 0.017]) {
-    many = grind(many, cols, at, at.at + step);
-    at = holdAt(at, at.at + step);
+    many = grind(many, cols, { ...hold, at: t }, t + step);
+    t += step;
   }
-  many = grind(many, cols, at, 2.7);
-  for (let j = 0; j < COLUMNS; j++) {
-    assert.ok(Math.abs(once.lines[0][j] - many.lines[0][j]) < 1e-9);
-    assert.ok(Math.abs(once.heat[j] - many.heat[j]) < 1e-9);
-    for (let k = 0; k < LEVELS; k++) assert.ok(Math.abs(once.faces[0][j][k] - many.faces[0][j][k]) < 1e-9);
-  }
+  many = grind(many, cols, { ...hold, at: t }, 2.7);
+  for (let j = 0; j < COLUMNS; j++) assert.ok(Math.abs(once.lines[0][j] - many.lines[0][j]) < 1e-9);
 });
 
-test("the hold moves on the keys and stays in bounds", () => {
-  const h = hold({ x: 0.5, vx: 1, y: 0, vy: -2, lo: -6, hi: 2 });
-  const later = holdAt(h, 100);
-  assert.equal(later.x, X_RANGE[1]);
-  assert.equal(later.y, -6);
-  assert.equal(later.at, 100);
+test("turning it over grinds the other edge, after a moment", () => {
+  const two = cols.map((col) => ({ ...col }));
+  const g = flip(newGrind(c.bevel), 1);
+  assert.equal(g.down, 1);
+  const x = 0.5;
+  const y = lowest(g, two, x) - PEN;
+  assert.deepEqual(grind(g, two, { x, y, at: 1 }, 1 + FLIP_TIME - DT).lines, g.lines);
+  const later = grind(g, two, { x, y, at: 1 }, 2);
+  assert.ok(later.lines[1].some((h) => h > 0));
+  assert.ok(later.lines[0].every((h) => h === 0));
+  // The top edge, turned down, is mirrored: as far below 0 as the bottom
+  // edge is span below the centre line.
+  const col = two[20];
+  assert.equal(edgeDown(col, 1), 2 * col.span - col.edge);
 });
 
-test("flipping or dunking stops the grinding for a moment", () => {
-  const x = cols[15].x;
-  const g = flip(newGrind(), 1);
-  assert.equal(g.side, 1);
-  const early = grind(g, cols, hold({ x, at: 1 }), 1 + FLIP_TIME - DT);
-  assert.equal(depth(early, 15, 1), 0);
-  const later = grind(g, cols, hold({ x, at: 1 }), 1 + FLIP_TIME + 0.2);
-  assert.ok(depth(later, 15, 1) > 0);
-  assert.equal(depth(later, 15, 0), 0);
-  const wet = dunk(newGrind(), 2);
-  assert.equal(depth(grind(wet, cols, hold({ x, at: 2 }), 2 + DUNK_TIME - DT), 15, 0), 0);
-});
-
-test("lingering blues the edge, drawing the blade along doesn't, and the bucket cools it", () => {
-  const j = 20;
-  const still = grind(newGrind(), cols, hold({ x: cols[j].x }), 3);
-  assert.ok(still.peak[j] >= BLUE, `peak ${still.peak[j]}`);
-  // Passes end to end at a steady pace.
-  let g = newGrind();
-  let h = hold({ x: X_RANGE[0], vx: 0.8 });
-  for (let pass = 0; pass < 8; pass++) {
-    const time = (X_RANGE[1] - X_RANGE[0]) / 0.8;
-    g = grind(g, cols, h, h.at + time);
-    h = { ...holdAt(h, h.at + time), vx: -h.vx };
+test("the edge reaches 1 mm as the bevel reaches the line", () => {
+  for (const col of cols) {
+    assert.equal(thickness(col, 0, c.bevel), col.stock);
+    assert.ok(Math.abs(thickness(col, c.bevel, c.bevel) - EDGE) < 1e-9);
+    assert.ok(thickness(col, 1, c.bevel) < EDGE);
   }
-  assert.ok(Math.max(...g.peak) < 0.8 * BLUE, `peak ${Math.max(...g.peak)}`);
-  // Heat fades off the belt, and the bucket takes it all.
-  const cooled = grind(still, cols, hold({ down: false, at: 3 }), 6);
-  assert.ok(cooled.heat[j] < still.heat[j] / 2);
-  assert.equal(cooled.peak[j], still.peak[j], "the colour stays");
-  assert.deepEqual(dunk(still, 3).heat, Array(COLUMNS).fill(0));
 });
 
 test("a perfect grind scores 100, and mistakes cost", () => {
-  const perfect = perfectGrind(cols, c.bevel);
-  const s = grindScore(c, perfect, cols);
-  assert.equal(s.score, 100);
-  assert.equal(s.thin, 0);
-  assert.equal(s.blued, 0);
-  assert.ok(s.uneven < 1e-9);
-  for (let j = 0; j < COLUMNS; j++) {
-    assert.ok(Math.abs(edgeLeft(perfect, cols, j) - EDGE) < 1e-9);
-    assert.ok(Math.abs(sideLeft(perfect, cols, j, 0)) < 1e-9);
+  for (const edges of [1, 2]) {
+    const perfect = perfectGrind(c.bevel, edges);
+    const s = grindScore(c, perfect, cols, edges);
+    assert.equal(s.score, 100);
+    assert.equal(s.thin, 0);
+    for (let j = 0; j < COLUMNS; j++) assert.ok(Math.abs(edgeLeft(perfect, cols, j, edges) - EDGE) < 1e-9);
+    assert.ok(grindScore(c, newGrind(c.bevel), cols, edges).score < 10);
+    const high = { ...perfect, lines: [perfect.lines[0].map((h) => Math.min(1, h + 0.15)), perfect.lines[1]] };
+    const hs = grindScore(c, high, cols, edges);
+    assert.ok(hs.line < 100 && hs.edge < 100 && hs.thin > 0);
   }
-  assert.ok(grindScore(c, newGrind(), cols).score < 10);
-  const high = { ...perfect, lines: [perfect.lines[0].map((h) => h + 0.05), perfect.lines[1]] };
-  assert.ok(grindScore(c, high, cols).line < 100);
-  const blued = { ...perfect, peak: perfect.peak.map((_, j) => (j < 4 ? BLUE : 0)) };
-  const bs = grindScore(c, blued, cols);
-  assert.equal(bs.blued, 4);
-  assert.ok(bs.edge < 100);
-  const lopsided = { ...perfect, faces: [perfect.faces[0].map((f) => f.map((r) => 2 * r)), perfect.faces[1].map((f) => f.map(() => 0))] };
-  assert.ok(grindScore(c, lopsided, cols).uneven > 0.5);
+  // A double-edged blade ground on one edge only is half done.
+  const one = grindScore(c, perfectGrind(c.bevel, 1), cols, 2);
+  assert.ok(one.score < 60);
 });
 
-test("a steady player, passing end to end aimed at the line, grinds both sides in time", () => {
-  let g = newGrind(), t = 0;
-  let h = hold({ x: X_RANGE[0], vx: 0.8 });
-  for (let side = 0; side < 2; side++) {
-    if (side) {
-      g = flip(g, t);
-      h = { ...h, at: t };
+test("a steady player sweeping along, lifting where it's done, grinds it in time", () => {
+  // Falcata, longsword, katana and jian: one edge and two, straight and curved.
+  for (const key of ["2026-10-16", "2026-10-17", "2026-10-23", "2026-10-26"]) {
+    const k = commission(key);
+    const b = bladeById[k.blade];
+    const cs = geometry(b, k.widths, k.lengths, k.billet, k.stock);
+    const most = give(cs);
+    let g = newGrind(k.bevel);
+    let t = 0, x = -0.06, vx = 0.6;
+    const step = 1 / 60;
+    for (let e = 0; e < b.edges; e++) {
+      if (e) {
+        g = flip(g, t);
+        t += FLIP_TIME;
+      }
+      const need = (j) => g.lines[g.down][j] < k.bevel - 0.03;
+      while (t < GRIND_TIME && cs.some((_, j) => j < COLUMNS - 3 && need(j))) {
+        // Push halfway in over the strips still to do, as far as the belt gives.
+        const under = cs.filter((col, j) => underBelt(col, x) && need(j));
+        let y = under.length ? Math.max(...under.map((col) => edgeDown(col, g.down))) - most / 2 : Infinity;
+        const low = lowest(g, cs, x);
+        if (low !== null) y = Math.max(y, low - most);
+        g = grind(g, cs, { x, y, at: t }, t + step);
+        t += step;
+        x += vx * step;
+        if (x > 1.06 || x < -0.06) vx = -vx;
+      }
     }
-    for (let n = 0; n < 1500; n++) {
-      const j = Math.max(0, Math.min(COLUMNS - 1, Math.floor(h.x * COLUMNS)));
-      h = { ...h, down: sideLeft(g, cols, j, g.side) > 0.02, y: aim(j, c.bevel) };
-      g = grind(g, cols, h, t + 1 / 60);
-      t += 1 / 60;
-      h = holdAt(h, t);
-      if (h.x >= X_RANGE[1] || h.x <= X_RANGE[0]) h.vx = -h.vx;
-      if (cols.every((_, i) => sideLeft(g, cols, i, g.side) <= 0.02)) break;
-    }
+    const s = grindScore(k, g, cs, b.edges);
+    assert.ok(t < GRIND_TIME, `${k.blade} took ${t}s`);
+    assert.ok(s.score >= 80, `${k.blade} scored ${s.score}`);
   }
-  assert.ok(t < 35, `took ${t}s`);
-  assert.ok(grindScore(c, g, cols).score >= 80);
 });

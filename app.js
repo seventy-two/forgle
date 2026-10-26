@@ -8,8 +8,7 @@ import { glowCSS, glowStrength, colourName } from "./glow.js";
 import { hilt } from "./hilts.js";
 import { crackLines } from "./crack.js";
 import {
-  GRIND_TIME, COLUMNS, LEVELS, BELT, EDGE, SIDE_OK, FLIP_TIME, DUNK_TIME, BLUE, X_RANGE,
-  geometry, newGrind, perfectGrind, sideLeft, edgeLeft, slope, touch, holdAt, grind, flip, dunk, grindScore,
+  GRIND_TIME, COLUMNS, BELT, FLIP_TIME, geometry, give, newGrind, perfectGrind, edgeDown, lowest, edgeLeft, grind, flip, grindScore,
 } from "./grind.js";
 import {
   HARDEN_TIME, TRANSFER, CRACK, KEY_STEER, DRAG_STEER, QUENCHES, htTemp, htSetFire, magnetSticks, quenchTemp,
@@ -61,7 +60,7 @@ const state = {
   forgeScore: null,
   g: null, // the grind
   cols: null, // the forged blade's strips, for the grind
-  press: null, // the grind's hold on the belt (see grind.js), and where a drag started
+  press: null, // the blade on the grinder: where the belt is along it and how high (see grind.js), and any drag
   grindScore: null,
   heat: null, // the harden stage's heat
   plunge: null, // the quench, once it's in
@@ -465,7 +464,7 @@ function practise(stage) {
   state.forgeScore = forgeScore(C, bar);
   if (stage !== "grind") {
     const cols = geometry(BLADE, state.forged.widths, state.forged.lengths, C.billet, C.stock);
-    state.grindScore = grindScore(C, perfectGrind(cols, C.bevel), cols);
+    state.grindScore = grindScore(C, perfectGrind(C.bevel, BLADE.edges), cols, BLADE.edges);
   }
   if (stage === "temper" || stage === "test") {
     state.hardened = {
@@ -551,241 +550,125 @@ function frame(now) {
 
 // --- The grinder
 
-const gscene = { sy: 1, ref: 0 };
+// The scene's origin is the middle of the belt's top. The blade is drawn
+// in its own coordinates (mm along, y times sy) and moved over the belt.
+const gscene = { sy: 1, L: 1, tall: 1 };
 
 function startGrind() {
   state.phase = "grind";
-  state.g = newGrind();
+  state.g = newGrind(C.bevel);
   state.t0 = performance.now();
-  gscene.ref = C.billet;
   $("result").hidden = true;
   $("grind").hidden = false;
   setStage("grind");
   buildGrinder();
-  const [lo, hi] = heightBounds();
-  state.press = { down: false, x: 0.5, y: startHeight(), vx: 0, vy: 0, lo, hi, at: 0 };
-  drawGrind(0);
-  say("Aim at the dashed line and draw the blade across the belt", "", 2500);
+  // Held over the middle of the belt, a little above it.
+  state.press = { x: 0.5, y: maxEdge() + (0.35 * gscene.tall) / gscene.sy, at: 0, vx: 0, vy: 0, drag: null, touching: false };
+  drawGrind();
+  say("Drag the blade onto the belt", "", 2500);
 }
+
+// maxEdge is how low the down edge reaches anywhere along the blade.
+const maxEdge = () => Math.max(...state.cols.map((c) => edgeDown(c, state.g.down)));
 
 function buildGrinder() {
   const svg = $("gbar");
   const { widths, lengths } = state.forged;
-  const shape = outline(BLADE, widths, lengths, { ref: gscene.ref });
+  const shape = outline(BLADE, widths, lengths, { ref: C.billet });
   const L = shape.length;
   const ys = [...shape.top, ...shape.bottom].map(([, y]) => y);
-  const minY = Math.min(...ys), maxY = Math.max(...ys);
-  const tall = maxY - minY;
-  // Draw the blade about a quarter as tall as the scene is wide; a curved
-  // blade's scene is taller by its curve.
-  gscene.sy = Math.min(4, Math.max(1.5, (0.26 * L) / tall));
+  const tall = Math.max(...ys) - Math.min(...ys);
+  // Draw the blade taller than life, about a fifth as tall as it's long.
+  gscene.sy = Math.min(4, Math.max(1.5, (0.2 * L) / tall));
   gscene.L = L;
-  state.cols = curveCols(geometry(BLADE, widths, lengths, gscene.ref, C.stock), gscene.sy);
-  const pad = tall * gscene.sy * 0.18;
-  gscene.vb = { x: -L * 0.02, y: minY * gscene.sy + LIFT - pad, w: L * 1.04, h: tall * gscene.sy + DROP - LIFT + 2 * pad };
-  svg.setAttribute("viewBox", `${gscene.vb.x} ${gscene.vb.y} ${gscene.vb.w} ${gscene.vb.h}`);
-  // The ground bevel takes the colour of the hottest the steel has been.
-  const grad = el("linearGradient", { id: "gcolour", gradientUnits: "userSpaceOnUse", x1: 0, x2: L, y1: 0, y2: 0 });
-  gscene.stops = state.cols.map((c) => {
-    const s = el("stop", { offset: c.x, "stop-color": GROUND });
-    grad.append(s);
-    return s;
-  });
-  const defs = el("defs");
-  defs.append(grad);
-  gscene.steel = el("path", { class: "steel", d: outlinePath(shape, { sy: gscene.sy, bend: BEND }) });
-  gscene.ground = el("path", { class: "ground" });
-  gscene.goal = el("path", { class: "goal" });
-  gscene.line = el("path", { class: "line" });
-  gscene.other = el("path", { class: "other" });
-  gscene.belt = el("rect", { class: "belt", y: gscene.vb.y, height: gscene.vb.h, width: BELT * L, rx: 2 });
-  gscene.aim = el("line", { class: "aim" });
-  svg.replaceChildren(defs, gscene.steel, gscene.ground, gscene.other, gscene.goal, gscene.line, gscene.belt, gscene.aim);
-  gscene.goal.setAttribute("d", linePath(state.cols.map(() => C.bevel)));
+  gscene.tall = tall * gscene.sy + DROP - LIFT;
+  state.cols = curveCols(geometry(BLADE, widths, lengths, C.billet, C.stock), gscene.sy);
+  const T = gscene.tall;
+  svg.setAttribute("viewBox", `${-0.6 * L} ${-1.35 * T} ${1.2 * L} ${2 * T}`);
 
-  // The cross-section at the belt, edge down, its thickness drawn XS times
-  // wider than life so the bevels show.
-  const sec = $("gsection");
-  const span = Math.max(...state.cols.map((c) => c.span));
-  const thick = Math.max(...state.cols.map((c) => c.stock));
-  gscene.xs = (0.7 * span) / thick;
-  sec.setAttribute("viewBox", `${-0.5 * span} ${-0.08 * span} ${span} ${1.16 * span}`);
-  gscene.secBody = el("path", { class: "sec-steel" });
-  gscene.secGoal = el("path", { class: "sec-goal" });
-  gscene.secBelt = el("line", { class: "sec-belt" });
-  gscene.secEdge = el("line", { class: "sec-edge" });
-  sec.replaceChildren(gscene.secBody, gscene.secGoal, gscene.secEdge, gscene.secBelt);
-
-  const cells = $("gcells");
-  cells.replaceChildren();
-  for (let i = 0; i < N; i++) {
-    const b = document.createElement("div");
-    b.className = "cell";
-    b.innerHTML = `<div class="bar"></div><span></span>`;
-    cells.append(b);
-  }
+  // The grinder: an upright belt over a top wheel, in front of the blade so
+  // an edge pushed in sinks into it.
+  const w = BELT * L, bottom = 0.65 * T;
+  const r = w / 2;
+  const grinder = el("g", { class: "machine" });
+  const loop = `M${-r},${bottom}L${-r},${r}A${r},${r} 0 0 1 ${r},${r}L${r},${bottom}Z`;
+  grinder.append(
+    el("path", { class: "belt", d: loop }),
+    el("path", { class: "grit", d: `M${-r * 0.5},${bottom}L${-r * 0.5},${r * 0.4}M0,${bottom}L0,0M${r * 0.5},${bottom}L${r * 0.5},${r * 0.4}` }),
+    el("circle", { class: "wheel", cx: 0, cy: r, r: r * 0.35 }),
+  );
+  gscene.blade = el("g", { class: "held" });
+  const steel = el("path", { class: "steel", d: outlinePath(shape, { sy: gscene.sy, bend: BEND }) });
+  gscene.ground = [el("path", { class: "ground" }), el("path", { class: "ground" })];
+  gscene.line = [el("path", { class: "line" }), el("path", { class: "line" })];
+  const goal = el("path", { class: "goal" });
+  gscene.blade.append(steel, ...gscene.ground, goal, ...gscene.line);
+  goal.setAttribute("d", linePath(state.cols.map(() => C.bevel), 0) + (BLADE.edges === 2 ? linePath(state.cols.map(() => C.bevel), 1) : ""));
+  svg.replaceChildren(gscene.blade, grinder);
+  $("flip").hidden = BLADE.edges !== 2;
 }
 
-const GROUND = "#d5d9de";
-
-// lineY is where a line at height h (a share of the span) sits over strip j,
-// in drawn coordinates; mirror gives the other edge's on double-edged blades.
-function lineY(j, h, mirror = false) {
+// lineY is where a line at height h (a share of the span) over edge e sits
+// over strip j, in the blade's drawn coordinates.
+function lineY(j, h, e) {
   const c = state.cols[j];
-  const y = mirror ? c.edge - 2 * c.span + h * c.span : c.edge - h * c.span;
-  return y * gscene.sy;
+  return (e ? c.edge - 2 * c.span + h * c.span : c.edge - h * c.span) * gscene.sy;
 }
 
-function linePath(hs) {
+function linePath(hs, e) {
+  return `M${state.cols.map((c, j) => `${c.mm.toFixed(1)},${lineY(j, hs[j], e).toFixed(2)}`).join("L")}`;
+}
+
+function groundPath(hs, e) {
   const cols = state.cols;
-  const pts = (mirror) => cols.map((c, j) => `${c.mm.toFixed(1)},${lineY(j, hs[j], mirror).toFixed(2)}`).join("L");
-  let d = `M${pts(false)}`;
-  if (BLADE.edges === 2) d += `M${pts(true)}`;
-  return d;
+  const up = cols.map((c, j) => `${c.mm.toFixed(1)},${lineY(j, hs[j], e).toFixed(2)}`);
+  const edge = cols.map((c, j) => `${c.mm.toFixed(1)},${lineY(j, 0, e).toFixed(2)}`).reverse();
+  return `M${up.join("L")}L${edge.join("L")}Z`;
 }
 
-function groundPath(hs) {
-  const cols = state.cols;
-  const band = (mirror) => {
-    const up = cols.map((c, j) => `${c.mm.toFixed(1)},${lineY(j, hs[j], mirror).toFixed(2)}`);
-    const edge = cols.map((c, j) => `${c.mm.toFixed(1)},${lineY(j, 0, mirror).toFixed(2)}`).reverse();
-    return `M${up.join("L")}L${edge.join("L")}Z`;
-  };
-  return band(false) + (BLADE.edges === 2 ? band(true) : "");
-}
-
-// stripAt is the strip under the belt's centre.
-const stripAt = (x) => Math.max(0, Math.min(COLUMNS - 1, Math.floor(x * COLUMNS)));
-
-function drawGrind(t) {
+function drawGrind() {
   const g = state.g;
-  const side = g.side;
-  const hold = holdAt(state.press, Math.max(t, state.press.at));
-  gscene.ground.setAttribute("d", groundPath(g.lines[side]));
-  gscene.line.setAttribute("d", linePath(g.lines[side]));
-  gscene.other.setAttribute("d", linePath(g.lines[1 - side]));
-  g.peak.forEach((p, j) => gscene.stops[j].setAttribute("stop-color", p < 0.5 ? GROUND : oxideCSS(20 + 280 * Math.min(p, 1.05))));
-  gscene.belt.setAttribute("x", (hold.x - BELT / 2) * gscene.L);
-  gscene.aim.setAttribute("x1", (hold.x - BELT / 2) * gscene.L);
-  gscene.aim.setAttribute("x2", (hold.x + BELT / 2) * gscene.L);
-  gscene.aim.setAttribute("y1", hold.y * gscene.sy);
-  gscene.aim.setAttribute("y2", hold.y * gscene.sy);
-  $("side").textContent = side === 0 ? "First side" : "Second side";
-
-  // The cross-section under the belt: this side on the left.
-  const j = stripAt(hold.x);
-  const c = state.cols[j];
-  const xs = gscene.xs;
-  const ys = (k) => (k / (LEVELS - 1)) * c.span;
-  const [near, far] = [g.faces[side][j], g.faces[1 - side][j]];
-  const left = near.map((r, k) => `${((-c.stock / 2 + r) * xs).toFixed(2)},${(c.span - ys(k)).toFixed(2)}`);
-  const right = far.map((r, k) => `${((c.stock / 2 - r) * xs).toFixed(2)},${(c.span - ys(k)).toFixed(2)}`).reverse();
-  gscene.secBody.setAttribute("d", `M${left.join("L")}L${right.join("L")}Z`);
-  const d = (c.stock - EDGE) / 2;
-  const top = c.span * (1 - C.bevel);
-  gscene.secGoal.setAttribute("d",
-    `M${(-c.stock / 2) * xs},${top}L${(-EDGE / 2) * xs},${c.span}M${(c.stock / 2) * xs},${top}L${(EDGE / 2) * xs},${c.span}`);
-  gscene.secEdge.setAttribute("x1", (-c.stock / 2 + d) * xs);
-  gscene.secEdge.setAttribute("x2", (c.stock / 2 - d) * xs);
-  gscene.secEdge.setAttribute("y1", c.span);
-  gscene.secEdge.setAttribute("y2", c.span);
-  // The belt's face, where it meets this side at the tilt aimed at.
-  const h = (c.edge - hold.y) / c.span;
-  gscene.secBelt.style.display = h > 0 ? "" : "none";
-  if (h > 0) {
-    const tan = slope(c, Math.min(1, h));
-    const a = touch(near, c.span, tan);
-    const beltX = (y) => (-c.stock / 2 + a - y * tan) * xs;
-    gscene.secBelt.setAttribute("x1", beltX(-0.1 * c.span));
-    gscene.secBelt.setAttribute("y1", 1.1 * c.span);
-    gscene.secBelt.setAttribute("x2", beltX(1.1 * c.span));
-    gscene.secBelt.setAttribute("y2", -0.1 * c.span);
-  }
-  $("gedge").textContent = `${edgeLeft(g, state.cols, j).toFixed(1)} mm`;
-  const heat = Math.max(...g.heat);
-  const meter = $("gheat");
-  meter.style.transform = `scaleX(${Math.min(1, heat / BLUE)})`;
-  meter.classList.toggle("hot", heat > 0.7 * BLUE);
-
-  // Each section's share left to grind off this side's edge: green once
-  // this side's half is done.
-  const per = COLUMNS / N;
-  const cells = $("gcells").children;
-  const leftOf = (i, s) => {
-    let sum = 0, full = 0;
-    for (let k = i * per; k < (i + 1) * per; k++) {
-      sum += sideLeft(g, state.cols, k, s);
-      full += (state.cols[k].stock - EDGE) / 2;
-    }
-    return [sum / per, full / per];
-  };
-  let otherDone = 0;
-  for (let i = 0; i < N; i++) {
-    const [l, full] = leftOf(i, side);
-    const cell = cells[i];
-    const on = Math.abs(l) <= SIDE_OK;
-    const thin = l < -SIDE_OK;
-    cell.classList.toggle("on", on);
-    cell.classList.toggle("thin", thin);
-    cell.classList.toggle("picked", i === Math.min(N - 1, Math.floor(j / per)));
-    cell.querySelector("span").textContent = on ? "✓" : thin ? `−${(-l).toFixed(1)}` : l.toFixed(1);
-    cell.querySelector(".bar").style.height = on || thin ? "100%" : `${Math.min(1, l / full) * 100}%`;
-    if (Math.abs(leftOf(i, 1 - side)[0]) <= SIDE_OK) otherDone++;
-  }
-  $("greadout").textContent = `mm left to grind off this side's edge · other side: ${otherDone}/${N} done`;
-}
-
-// bladeX turns a pointer event's position into a share of the blade's length.
-function bladeX(e) {
-  const ctm = $("gbar").getScreenCTM();
-  if (!ctm) return state.press.x;
-  const p = new DOMPoint(e.clientX, e.clientY).matrixTransform(ctm.inverse());
-  return Math.max(X_RANGE[0], Math.min(X_RANGE[1], p.x / gscene.L));
-}
-
-// bladeY turns a pointer event's position into the blade's own y (mm).
-function bladeY(e) {
-  const ctm = $("gbar").getScreenCTM();
-  if (!ctm) return state.press.y;
-  const p = new DOMPoint(e.clientX, e.clientY).matrixTransform(ctm.inverse());
-  return Math.max(state.press.lo, Math.min(state.press.hi, p.y / gscene.sy));
-}
-
-// pressAt records a pointer event (across draws the blade along the belt,
-// up and down aims it): first grinding up to its time with the hold as it
-// was, then taking the new position, aim and grip.
-function pressAt(e, down) {
-  if (state.phase !== "grind") return;
-  const t = stageTime(e.timeStamp);
-  flushGrind(t);
   const p = state.press;
-  if (e.clientX !== undefined) {
-    p.x = bladeX(e);
-    p.y = bladeY(e);
+  for (let e = 0; e < BLADE.edges; e++) {
+    gscene.ground[e].setAttribute("d", groundPath(g.lines[e], e));
+    gscene.line[e].setAttribute("d", linePath(g.lines[e], e));
   }
-  setDown(down);
+  // Turned over, the blade is mirrored about y = 0 (see edgeDown).
+  const flipT = g.down ? " scale(1 -1)" : "";
+  gscene.blade.setAttribute("transform", `translate(${-p.x * gscene.L} ${-p.y * gscene.sy})${flipT}`);
 }
 
-// heightBounds is how far the aim can go: from the spine (or the far edge)
-// to just below the edge.
-function heightBounds() {
-  const cols = state.cols;
-  const top = Math.min(...cols.map((c) => c.edge - (BLADE.edges === 2 ? 2 : 1) * c.span));
-  const bottom = Math.max(...cols.map((c) => c.edge));
-  return [top, bottom + 2];
+// scenePoint turns a pointer event's position into the scene's coordinates.
+function scenePoint(e) {
+  const ctm = $("gbar").getScreenCTM();
+  if (!ctm) return null;
+  return new DOMPoint(e.clientX, e.clientY).matrixTransform(ctm.inverse());
 }
 
-// startHeight is where the keyboard's aim starts: on the line at the middle
-// of the blade.
-function startHeight() {
-  const c = state.cols[Math.floor(COLUMNS / 2)];
-  return c.edge - C.bevel * c.span;
+// moveBlade puts the blade at x along the belt (a share of its length) with
+// the belt's top at y in its frame, pushed into the belt at most as far as
+// it gives, and
+// within the scene.
+function moveBlade(x, y) {
+  const p = state.press;
+  p.x = Math.max(-0.1, Math.min(1.1, x));
+  const low = lowest(state.g, state.cols, p.x);
+  const top = maxEdge() + (1.1 * gscene.tall) / gscene.sy;
+  p.y = Math.min(top, low === null ? y : Math.max(low - give(state.cols), y));
 }
 
-function setDown(down) {
-  state.press.down = down;
-  $("gscene").classList.toggle("pressing", down);
-  sound.hiss(down);
+// grabAt handles the pointer: press anywhere to take hold of the blade,
+// and it follows the pointer until let go.
+function grabAt(e, phase) {
+  if (state.phase !== "grind") return;
+  flushGrind(stageTime(e.timeStamp));
+  const p = state.press;
+  const pt = scenePoint(e);
+  if (!pt) return;
+  if (phase === "down") p.drag = { px: pt.x, py: pt.y, x: p.x, y: p.y };
+  else if (phase === "up") p.drag = null;
+  else if (p.drag) moveBlade(p.drag.x - (pt.x - p.drag.px) / gscene.L, p.drag.y - (pt.y - p.drag.py) / gscene.sy);
+  $("gscene").classList.toggle("holding", Boolean(p.drag));
 }
 
 function flushGrind(t) {
@@ -793,42 +676,33 @@ function flushGrind(t) {
   const until = Math.min(t, GRIND_TIME);
   if (until > p.at) {
     state.g = grind(state.g, state.cols, p, until);
-    Object.assign(p, holdAt(p, until));
+    p.at = until;
   }
 }
 
-// The keys: ← → draw the blade along at KEY_X lengths a second, ↑ ↓ move
-// the aim at KEY_HEIGHT spans a second, Space presses it on.
-const KEY_X = 0.6;
-const KEY_HEIGHT = 0.8;
+// The keys move the blade: ← → along at KEY_X lengths a second, ↑ ↓ up
+// and down at KEY_Y of its height a second.
+const KEY_X = 0.5;
+const KEY_Y = 0.6;
 
-function steerBlade(stamp, vx, vy) {
+function steerBlade(vx, vy) {
   if (state.phase !== "grind") return;
-  flushGrind(stageTime(stamp));
   if (vx !== null) state.press.vx = vx;
-  if (vy !== null) state.press.vy = vy * KEY_HEIGHT * Math.max(...state.cols.map((c) => c.span));
+  if (vy !== null) state.press.vy = vy;
 }
 
 function doFlip(stamp) {
-  if (state.phase !== "grind") return;
+  if (state.phase !== "grind" || BLADE.edges !== 2) return;
   const t = stageTime(stamp);
   flushGrind(t);
   state.g = flip(state.g, t);
+  // Lift it clear to turn it over.
+  state.press.drag = null;
+  moveBlade(state.press.x, maxEdge() + (0.35 * gscene.tall) / gscene.sy);
   const sc = $("gscene");
   sc.classList.add("flipping");
   setTimeout(() => sc.classList.remove("flipping"), FLIP_TIME * 1000);
-  say(state.g.side === 0 ? "Back to the first side" : "Flipped: now match the other side", "", 1500);
-}
-
-function doDunk(stamp) {
-  if (state.phase !== "grind") return;
-  const t = stageTime(stamp);
-  flushGrind(t);
-  state.g = dunk(state.g, t);
-  const sc = $("gscene");
-  sc.classList.add("dunking");
-  setTimeout(() => sc.classList.remove("dunking"), DUNK_TIME * 1000);
-  say("Cooled in the bucket", "cold", 1200);
+  say(state.g.down ? "Turned over: now the other edge" : "Back to the first edge", "", 1500);
 }
 
 function grindFrame(now) {
@@ -837,37 +711,43 @@ function grindFrame(now) {
     finishGrind(GRIND_TIME);
     return;
   }
+  const p = state.press;
+  const dt = Math.max(0, t - p.at);
   flushGrind(t);
+  if (p.vx || p.vy) moveBlade(p.x + p.vx * dt, p.y + (p.vy * dt * gscene.tall) / gscene.sy);
   const left = GRIND_TIME - t;
   $("gclock").textContent = Math.ceil(left);
   $("gtrack").style.transform = `scaleX(${left / GRIND_TIME})`;
   $("grind").classList.toggle("low", left < 10);
-  drawGrind(t);
+  drawGrind();
 
-  // Sparks off the edge where the belt bites, more the harder it's working.
-  const p = state.press;
-  const g = state.g;
-  const busy = t < Math.max(g.flippedAt + FLIP_TIME, g.dunkedAt + DUNK_TIME);
-  if (p.down && !busy && p.x >= 0 && p.x <= 1) {
-    const j = stripAt(p.x);
+  // Sparks off the belt, more the harder the edge is pushed in.
+  const low = lowest(state.g, state.cols, p.x);
+  const most = give(state.cols);
+  const pen = low === null || t < state.g.flippedAt + FLIP_TIME ? 0 : Math.min(most, low - p.y);
+  const touching = pen > 0;
+  if (touching !== p.touching) {
+    p.touching = touching;
+    sound.hiss(touching);
+    $("gscene").classList.toggle("touching", touching);
+  }
+  if (touching) {
     const svg = $("gbar").getBoundingClientRect();
     const sc = $("gscene").getBoundingClientRect();
-    const px = svg.left - sc.left + ((p.x * gscene.L - gscene.vb.x) / gscene.vb.w) * svg.width;
-    const py = svg.top - sc.top + ((state.cols[j].edge * gscene.sy - gscene.vb.y) / gscene.vb.h) * svg.height;
+    const vb = $("gbar").viewBox.baseVal;
+    const px = svg.left - sc.left + ((0 - vb.x) / vb.width) * svg.width;
+    const py = svg.top - sc.top + ((0 - vb.y) / vb.height) * svg.height;
     const box = $("gsparks");
-    const hot = g.heat[j] > 0.7 * BLUE;
-    for (let k = 0; k < 3; k++) {
+    for (let k = 0; k < Math.ceil((4 * pen) / most); k++) {
       const s = document.createElement("i");
       s.className = "spark";
-      const a = Math.PI * (0.3 + Math.random() * 0.4);
-      const dist = 40 + Math.random() * 70;
-      const colour = hot ? "#ffe2a8" : "#ffcf7a";
-      s.style.cssText = `left:${px}px;top:${py}px;background:${colour};box-shadow:0 0 4px #ff9a3a;--dx:${Math.cos(a) * dist}px;--dy:${Math.sin(a) * dist}px`;
+      const a = Math.PI * (Math.random() < 0.5 ? 0.05 + Math.random() * 0.25 : 0.7 + Math.random() * 0.25);
+      const d = 30 + Math.random() * 60;
+      s.style.cssText = `left:${px + (Math.random() - 0.5) * 20}px;top:${py}px;background:#ffcf7a;box-shadow:0 0 4px #ff9a3a;--dx:${Math.cos(a) * d}px;--dy:${Math.sin(a) * d}px`;
       box.append(s);
       s.addEventListener("animationend", () => s.remove());
     }
   }
-  if (Math.max(...g.heat) > 0.8 * BLUE && now >= state.feedback.until) say("Too hot to hold: cool it (C)", "bad", 900);
   const fb = state.feedback;
   const msg = $("gfeedback");
   msg.textContent = now < fb.until ? fb.text : "";
@@ -877,11 +757,12 @@ function grindFrame(now) {
 function finishGrind(t) {
   if (state.phase !== "grind") return;
   flushGrind(t);
-  setDown(false);
+  state.press.drag = null;
   state.press.vx = state.press.vy = 0;
+  sound.hiss(false);
+  $("gscene").classList.remove("touching", "holding");
   state.phase = "ground";
-  const g = state.g;
-  const s = grindScore(C, g, state.cols);
+  const s = grindScore(C, state.g, state.cols, BLADE.edges);
   $("grind").hidden = true;
   $("result").hidden = false;
   kicker("Grinding");
@@ -892,16 +773,12 @@ function finishGrind(t) {
     ["Lines off on average", `${(s.lineErr * 100).toFixed(1)}%`],
     ["Edge", `${s.edge}/100`],
     ["Strips too thin", `${s.thin} of ${COLUMNS}`],
-    ["Strips blued", `${s.blued} of ${COLUMNS}`],
-    ["Sides uneven by", `${s.uneven.toFixed(2)} mm`],
     ["Forging", `${state.forgeScore.score}/100`],
   ];
   $("breakdown").innerHTML = rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("");
-  const worries = [];
-  if (s.thin) worries.push(`${s.thin} strip${s.thin > 1 ? "s" : ""} of edge too thin, which may crack`);
-  if (s.blued) worries.push(`${s.blued} strip${s.blued > 1 ? "s" : ""} of edge overheated, which may crack`);
-  if (s.uneven > 0.3) worries.push("sides ground unevenly, which may warp it");
-  $("verdict").textContent = worries.length ? `In the quench, watch out for ${worries.join(", and ")}.` : "Even sides and a sound edge: ready to harden.";
+  $("verdict").textContent = s.thin
+    ? `In the quench, watch out for ${s.thin} strip${s.thin > 1 ? "s" : ""} of edge ground too thin, which may crack.`
+    : "A sound edge: ready to harden.";
   state.grindScore = s;
   $("result-note").textContent = "Next, harden it.";
   $("next").textContent = "To the quench";
@@ -1055,7 +932,7 @@ function revealHarden(quenchant) {
   const T = air ? htTemp(state.heat, HARDEN_TIME) : state.quenchT;
   const stress = Math.max(...state.bar.stress);
   const gs = state.grindScore;
-  const st = strain(STEEL, { stress, burning: state.bar.burning, thin: gs.thin + (gs.blued || 0), T, quenchant });
+  const st = strain(STEEL, { stress, burning: state.bar.burning, thin: gs.thin, T, quenchant });
   const cracked = !air && st.total >= CRACK;
   const hrc = hardness(STEEL, T, quenchant);
   const tiltMean = air ? 0 : meanTilt(state.plunge);
@@ -1086,7 +963,7 @@ function crackAt() {
   const most = Math.max(...stress);
   if (most > 0) return ((stress.indexOf(most) + 0.5) / N) * 0.92;
   if (state.g && state.cols) {
-    const left = state.cols.map((_, j) => edgeLeft(state.g, state.cols, j));
+    const left = state.cols.map((_, j) => edgeLeft(state.g, state.cols, j, BLADE.edges));
     const j = left.indexOf(Math.min(...left));
     if (left[j] < 0.6) return ((j + 0.5) / COLUMNS) * 0.95;
   }
@@ -1113,7 +990,7 @@ function showHardenResult() {
     ["Forging, grinding", `${state.forgeScore.score}, ${state.grindScore.score}`],
   ];
   $("breakdown").innerHTML = rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("");
-  const names = { forge: "cold or glancing blows", burnt: "burnt steel", edge: "an edge ground too thin or too hot", heat: "quenching too hot", quench: "too harsh a quench" };
+  const names = { forge: "cold or glancing blows", burnt: "burnt steel", edge: "an edge ground too thin", heat: "quenching too hot", quench: "too harsh a quench" };
   const causes = Object.entries(h.strain.parts).filter(([, v]) => v >= 0.05).sort((a, b) => b[1] - a[1]).map(([k]) => names[k]);
   const list = (xs) => (xs.length > 1 ? `${xs.slice(0, -1).join(", ")} and ${xs.at(-1)}` : xs[0]);
   let verdict;
@@ -1433,17 +1310,15 @@ function setup() {
   $("flip").addEventListener("pointerdown", (e) => { e.preventDefault(); doFlip(e.timeStamp); });
   $("gdone").addEventListener("click", (e) => finishGrind(stageTime(e.timeStamp)));
   const gs = $("gscene");
-  gs.addEventListener("pointerdown", (e) => { e.preventDefault(); gs.setPointerCapture(e.pointerId); pressAt(e, true); });
-  gs.addEventListener("pointermove", (e) => pressAt(e, Boolean(state.press?.down)));
-  gs.addEventListener("pointerup", (e) => pressAt(e, false));
-  gs.addEventListener("pointercancel", (e) => pressAt(e, false));
-  $("dunk").addEventListener("pointerdown", (e) => { e.preventDefault(); doDunk(e.timeStamp); });
+  gs.addEventListener("pointerdown", (e) => { e.preventDefault(); gs.setPointerCapture(e.pointerId); grabAt(e, "down"); });
+  gs.addEventListener("pointermove", (e) => grabAt(e, "move"));
+  gs.addEventListener("pointerup", (e) => grabAt(e, "up"));
+  gs.addEventListener("pointercancel", (e) => grabAt(e, "up"));
   addEventListener("keyup", (e) => {
     if (state.phase === "grind") {
       const k = e.key.toLowerCase();
-      if (k === " ") pressAt({ timeStamp: e.timeStamp }, false);
-      if (["arrowleft", "arrowright", "a", "d"].includes(k)) steerBlade(e.timeStamp, 0, null);
-      if (["arrowup", "arrowdown", "w", "s"].includes(k)) steerBlade(e.timeStamp, null, 0);
+      if (["arrowleft", "arrowright", "a", "d"].includes(k)) steerBlade(0, null);
+      if (["arrowup", "arrowdown", "w", "s"].includes(k)) steerBlade(null, 0);
     }
     if (state.phase === "temper" && e.key === " ") torchAt({ timeStamp: e.timeStamp, keyboard: true }, false);
     if (state.phase === "plunge" && (e.key === "ArrowLeft" || e.key === "ArrowRight")) {
@@ -1475,13 +1350,11 @@ function setup() {
     }
     if (state.phase === "grind") {
       const k = e.key.toLowerCase();
-      if (k === " ") pressAt({ timeStamp: e.timeStamp }, true);
-      else if (k === "f") doFlip(e.timeStamp);
-      else if (k === "c") doDunk(e.timeStamp);
-      else if (k === "arrowleft" || k === "a") steerBlade(e.timeStamp, -KEY_X, null);
-      else if (k === "arrowright" || k === "d") steerBlade(e.timeStamp, KEY_X, null);
-      else if (k === "arrowup" || k === "w") steerBlade(e.timeStamp, null, -1);
-      else if (k === "arrowdown" || k === "s") steerBlade(e.timeStamp, null, 1);
+      if (k === "f") doFlip(e.timeStamp);
+      else if (k === "arrowleft" || k === "a") steerBlade(KEY_X, null);
+      else if (k === "arrowright" || k === "d") steerBlade(-KEY_X, null);
+      else if (k === "arrowup" || k === "w") steerBlade(null, KEY_Y);
+      else if (k === "arrowdown" || k === "s") steerBlade(null, -KEY_Y);
       else return;
       e.preventDefault();
       return;

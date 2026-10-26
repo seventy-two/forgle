@@ -88,24 +88,13 @@
       <svg id="gbar" aria-label="The blade on the grinder"></svg>
       <div class="sparks" id="gsparks" aria-hidden="true"></div>
       <p class="feedback" id="gfeedback" aria-live="polite"></p>
-      <p class="side" id="side"></p>
     </div>
 
-    <div class="gpanel">
-      <svg id="gsection" aria-label="The blade's cross-section at the belt"></svg>
-      <dl class="gstats">
-        <dt>Edge here</dt><dd id="gedge"></dd>
-        <dt>Heat</dt><dd><div class="heat"><div class="fill" id="gheat"></div></div></dd>
-      </dl>
-    </div>
+    <p class="readout">Drag the blade. Push the edge onto the belt to grind it, harder to grind faster, and stop at the dashed line.</p>
 
-    <div class="cells" id="gcells" aria-label="Edge left to grind by section"></div>
-    <p class="readout" id="greadout"></p>
-
-    <div class="controls three">
-      <button type="button" class="secondary" id="flip">Flip<kbd>F</kbd></button>
-      <button type="button" class="secondary" id="dunk">Cool<kbd>C</kbd></button>
-      <button type="button" class="primary" id="gdone">Finished</button>
+    <div class="controls">
+      <button type="button" class="secondary" id="flip">Turn over<kbd>F</kbd></button>
+      <button type="button" class="primary" id="gdone">Finished grinding</button>
     </div>
   </section>
 
@@ -206,11 +195,9 @@
   </ol>
   <h3>Grind</h3>
   <ol>
-    <li>The belt stays still; you move the blade. <strong>Press and hold on the blade to put it on the belt</strong>, and <strong>draw it along</strong> from end to end (or on a keyboard, ← → to move and hold Space to press). Keep it moving: wherever you linger, the belt takes off more.</li>
-    <li><strong>Aim at the dashed line</strong> (move up and down, or ↑ ↓). That tilts the blade so the bevel climbs towards where you aim as the edge thins, and gets there as the edge reaches <strong>1 mm</strong>. Grind on and both go too far, and ground steel can't be put back.</li>
-    <li>The boxes show how much is <strong>left to grind off this side's edge</strong> in each section: get them all to <span class="good">✓</span>, lifting off over the ones that are done. The picture of the blade's end shows the steel under the belt, the belt (orange) and the bevels to cut (dashed).</li>
-    <li>Steel heats on the belt. Linger and it <strong>blues</strong>, which can crack it in the quench: <strong>cool</strong> it in the bucket (C).</li>
-    <li><strong>Flip</strong> it (F) and match the other side. You have <strong>45 seconds</strong> for both.</li>
+    <li><strong>Drag the blade around the belt grinder</strong> (or move it with the arrow keys). Wherever its edge touches the belt, the bevel climbs up the blade. Push it in harder and it grinds faster.</li>
+    <li><strong>Grind every part of the edge up to the dashed line</strong> and no further: past it, the edge gets thin and may crack in the quench. Ground steel can't be put back.</li>
+    <li>Double-edged blades have two edges to grind: <strong>turn it over</strong> (F) for the other one. You have <strong>45 seconds</strong>.</li>
   </ol>
   <h3>Harden</h3>
   <ol>

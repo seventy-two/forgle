@@ -35,36 +35,21 @@ with an even 1 mm edge.
 
 ## The grind
 
-- The forged blade goes to a belt grinder. The belt stays put; the player
-  draws the blade across it: press and hold on the blade to put it on the
-  belt, move across to draw it along (or ← → and hold Space). The belt
-  covers 8% of the blade's length at once, so wherever the blade lingers it
-  takes off more.
-- Up and down aims it (↑ ↓ on a keyboard): the blade is tilted so that the
-  belt's flat face, cut in until the edge is 1 mm, leaves the side of the
-  blade at the height aimed at. Every moment pressed cuts the strips under
-  the belt 2.6 mm/s deeper along that plane, starting where it first meets
-  the face (the edge on a fresh face, the shoulder on one ground steeper).
-  So the bevel climbs towards the aim as the edge thins and reaches it as
-  the edge is done; grind on and both go too far. A line too low can be
-  raised by aiming higher; one too high stays. Aimed below the edge, the
-  belt doesn't touch.
-- The edge comes off the anvil between 2.9 and 4.5 mm thick, varying along
-  the blade each day. The target is a 1 mm edge (±0.3) with the bevel at
-  the day's height (a share of the way from edge to spine, or to the centre
-  line on double-edged blades, which are ground on both edges at once).
-  Each side takes half of what has to come off; the boxes show what's left
-  on the current side (✓ within ±0.15 mm). A cross-section of the strip
-  under the belt shows the steel (drawn thicker than life), the belt's face
-  and the bevels to cut.
-- Steel under the belt heats (faster the thinner its edge) and cools in the
-  air (time constant 3s); steady passes stay well below blue, lingering
-  blues it in a few seconds. The bucket (C) cools it, taking a second.
-  Blued strips keep their colour.
-- 45 seconds for both sides. 60% for the lines, weighted by the blade's
-  width so the point counts little, and 40% for the edge (less a share for
-  each blued strip). Strips under 0.6 mm or blued, and unevenly ground
-  sides, are kept for the quench.
+- The forged blade goes to a belt grinder that stays put; the player
+  drags the blade around it (or moves it with the arrow keys). The belt is
+  8% of the blade's length wide.
+- Wherever the edge is pushed onto the belt, the bevel there climbs, at up
+  to 1.2 of the span a second, in proportion to how far it's pushed in.
+  It's a slack belt: it gives by up to 40% of the blade's widest span, so
+  nearby parts of a curved edge touch too, more lightly; the blade can't be
+  pushed in further.
+- The edge thins as the bevel climbs, from its thickness off the anvil
+  (2.9–4.5 mm, varying along the blade each day) to 1 mm as the bevel
+  reaches the day's line, and on past it. Both faces are ground alike.
+- Double-edged blades are turned over (F) to grind the other edge.
+- 45 seconds. 60% for the lines, weighted by the blade's width so the
+  point counts little, and 40% for the edge (1 mm ± 0.3). Strips under
+  0.6 mm are kept for the quench.
 
 ## Harden
 
@@ -79,10 +64,9 @@ with an even 1 mm edge.
   out 7 HRC soft.
 - The quench rocks the blade (a few slow waves, different each day; up to about 15°) for 4s
   in oil or 2.5s in water or brine. Drag sideways (or ← →) to keep it
-  upright. The average lean (0.25 mm a degree) plus uneven grinding
-  (1.2 mm per mm) is the warp.
+  upright. The average lean (0.25 mm a degree) is the warp.
 - Strain adds up the forge's worst section stress, seconds spent burning,
-  edge strips ground under 0.6 mm or blued on the grinder, going in more than 50°C past critical,
+  edge strips ground under 0.6 mm, going in more than 50°C past critical,
   and the quench, scaled by the steel's crack sensitivity. At 100% it
   cracks. No luck involved.
 - 35 seconds to get it into the quench, or it cools in the air (30 HRC).
@@ -126,10 +110,9 @@ It's a static page with no server.
 - `forge.js`: the forge stage's rules, pure functions of event times: the
   heat model is solved exactly between events, and a blow's quality comes
   from the event's timestamp, not animation frames.
-- `grind.js`: the grind stage's rules. Each strip's two faces are followed
-  at 25 heights, and the belt cuts them to a plane. The time between two
-  events is sampled on a fixed 5ms grid of absolute times, so the result
-  doesn't depend on how often the page updates.
+- `grind.js`: the grind stage's rules. The time between two events is
+  sampled on a fixed 5ms grid of absolute times, so the result doesn't
+  depend on how often the page updates.
 - `harden.js`: heating, the magnet, the plunge (the tilt is summed on the
   same kind of fixed grid), hardness, strain and warp.
 - `temper.js`: the torch's heat model, oxide colours and tempered
