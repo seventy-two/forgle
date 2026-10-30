@@ -21,7 +21,7 @@
   --smithy-muted: #8f857a;
   /* Flat and square, like dailies: borders rather than shadows, near-square corners. */
   --r: 3px;
-  --sans: Geist, Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --sans: "Petrov Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 @media (prefers-color-scheme: dark) {
   :root {
