@@ -62,6 +62,7 @@ const STEEL = steelById[C.steel];
 const N = C.widths.length;
 const HELP_STORE = "forgle:seen-help";
 const SOUND_STORE = "forgle:sound";
+const LOGGED_STORE = "forgle:logged:" + KEY; // this day's first real go was sent to dailies
 
 
 const $ = (id) => document.getElementById(id);
@@ -1342,12 +1343,17 @@ function showFinal() {
     try { navigator.sendBeacon("/beacon/forgle/done"); } catch { /* not counted, no matter */ }
   }
   $("toast").textContent = state.practice ? "Practice runs aren't for sharing." : "";
-  if (!state.practice && PAST) logToDailies(shareText(C.number, total, scores, location.origin + location.pathname));
+  // A day's first real go is logged in dailies straight away; later goes
+  // (there's no one-go lock) are for fun.
+  if (!state.practice && !store.get(LOGGED_STORE)) {
+    store.set(LOGGED_STORE, true);
+    logToDailies(shareText(C.number, total, scores, location.origin + location.pathname));
+  }
 }
 
-// logToDailies logs an earlier day's result in dailies for whoever is
-// logged in there (same site, so its login comes along), which files it on
-// that puzzle's day, so it needn't be pasted. Silent if nobody is.
+// logToDailies logs a result in dailies for whoever is logged in there
+// (same site, so its login comes along), which files it on its puzzle's
+// day, so it needn't be pasted. Silent if nobody is.
 async function logToDailies(text) {
   try {
     const cfg = await (await fetch("/dailies/api/config")).json();

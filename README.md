@@ -8,6 +8,13 @@ a bend. No meat.
 
 All five stages are built. The one-go-a-day lock and stats are still to come.
 
+A day's first real go is logged in [dailies](https://0x48.io/dailies/)
+as soon as it's finished, for whoever is logged in there (same site, so its
+login comes along); later goes that day aren't (remembered in the browser,
+and dailies won't replace a score anyway). `#12` or `#2026-10-21` plays an
+earlier day, up to yesterday, which dailies files on its own day; it isn't
+counted by the server's beacon.
+
 The commission card can also skip to a stage for practice, with a perfect
 blade up to it: forged exactly to the commission, and ground to the line
 with an even 1 mm edge.
