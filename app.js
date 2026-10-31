@@ -1342,7 +1342,26 @@ function showFinal() {
     try { navigator.sendBeacon("/beacon/forgle/done"); } catch { /* not counted, no matter */ }
   }
   $("toast").textContent = state.practice ? "Practice runs aren't for sharing." : "";
+  if (!state.practice && PAST) logToDailies(shareText(C.number, total, scores, location.origin + location.pathname));
 }
+
+// logToDailies logs an earlier day's result in dailies for whoever is
+// logged in there (same site, so its login comes along), which files it on
+// that puzzle's day, so it needn't be pasted. Silent if nobody is.
+async function logToDailies(text) {
+  try {
+    const cfg = await (await fetch("/dailies/api/config")).json();
+    if (!cfg.me) return;
+    const res = await fetch("/dailies/api/share", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ player: cfg.me, text }),
+    });
+    const body = await res.json().catch(() => ({}));
+    $("toast").textContent = body.message || body.error || "";
+  } catch { /* dailies is out of reach: paste it there instead */ }
+}
+
 
 async function share() {
   const text = shareText(C.number, state.total, state.scores, location.origin + location.pathname);
