@@ -1,4 +1,4 @@
-import { dayKey, commission, forgeScore, barLength } from "./game.js";
+import { dayKey, pastKey, commission, forgeScore, barLength } from "./game.js";
 import { bladeById, bender, outline, outlinePath } from "./blades.js";
 import { steelById } from "./steels.js";
 import {
@@ -17,7 +17,11 @@ import {
 import { TEMPER_TIME, STRIPS, CHART, temperedHardness, temperFor, oxideCSS, newTemper, torch, temperScore } from "./temper.js";
 import { trials, WEIGHTS, totalScore, verdict, square, shareText } from "./trials.js";
 
-const KEY = dayKey();
+// "#12" plays an earlier day (from dailies' Missed list): it isn't counted
+// by the server.
+const PAST = pastKey(location.hash);
+const KEY = PAST || dayKey();
+addEventListener("hashchange", () => location.reload());
 const C = commission(KEY);
 const BLADE = bladeById[C.blade];
 // BEND is how far the commission's blade curves at x mm from the guard.
@@ -223,7 +227,7 @@ function swatch(T) {
 
 function renderBrief() {
   const date = new Date(KEY + "T12:00:00Z").toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" });
-  $("day").textContent = `#${C.number} · ${date}`;
+  $("day").textContent = `#${C.number} · ${date}${PAST ? " · an earlier day" : ""}`;
   const article = /^[aeiou]/i.test(BLADE.name) ? "An" : "A";
   $("brief-title").textContent = `${article} ${BLADE.name} in ${STEEL.name}`;
   $("brief-about").textContent = BLADE.about;
@@ -1334,7 +1338,7 @@ function showFinal() {
   $("share").hidden = !!state.practice;
   // Tell the server a real game was finished (it only counts players;
   // nothing about the game is sent).
-  if (!state.practice) {
+  if (!state.practice && !PAST) {
     try { navigator.sendBeacon("/beacon/forgle/done"); } catch { /* not counted, no matter */ }
   }
   $("toast").textContent = state.practice ? "Practice runs aren't for sharing." : "";

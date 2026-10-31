@@ -51,6 +51,17 @@ export function dayKey(t = new Date()) {
   return t.toISOString().slice(0, 10);
 }
 
+// pastKey reads an earlier day from a page's hash: "#12" (puzzle 12) or
+// "#2026-10-21". Only days from #1 up to yesterday count; anything else is
+// null, so the page plays today's.
+export function pastKey(hash, today = dayKey()) {
+  const h = String(hash || "").replace(/^#/, "");
+  let key = null;
+  if (/^\d{1,5}$/.test(h)) key = new Date(Date.parse(FIRST_DAY) + (Number(h) - 1) * 86400000).toISOString().slice(0, 10);
+  else if (/^\d{4}-\d{2}-\d{2}$/.test(h) && !Number.isNaN(Date.parse(h))) key = h;
+  return key && key >= FIRST_DAY && key < today ? key : null;
+}
+
 // dayNumber is the puzzle number for a day key, counting FIRST_DAY as 1.
 export function dayNumber(key) {
   return Math.round((Date.parse(key) - Date.parse(FIRST_DAY)) / 86400000) + 1;
