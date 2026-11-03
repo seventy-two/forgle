@@ -328,3 +328,53 @@ dialog .primary { width: 100%; }
   .practise button:first-of-type { margin-left: 3px; }
 }
 #final-sword { margin: 0 0 16px; }
+
+/* Wide screens: like puddle and cabble, the scene takes the width and the
+   stage's clock, readouts and buttons sit in a column beside it. */
+@media (min-width: 900px) {
+  main { max-width: 1600px; padding-left: 24px; padding-right: 24px; }
+  .stage:not([hidden]) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 360px;
+    grid-template-rows: repeat(7, auto) 1fr;
+    column-gap: 20px;
+    align-items: start;
+    margin-top: 18px;
+  }
+  .stage > .scene { grid-column: 1; grid-row: 1 / -1; }
+  .stage > :not(.scene) { grid-column: 2; }
+  .stage > .clock-row { margin-top: 0; }
+  .stage > .cells:first-of-type, .stage > .chart { margin-top: 0; }
+  .stage .scene { min-height: 260px; }
+  .grinder svg { height: clamp(420px, calc(100vh - 230px), 900px); }
+  #tank { width: auto; height: clamp(260px, calc(100vh - 300px), 520px); max-width: 100%; }
+
+  /* The commission and results: the sword on the left, the rest beside it. */
+  .brief:not([hidden]), #result:not([hidden]) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 360px;
+    grid-template-rows: repeat(6, auto) 1fr;
+    column-gap: 32px;
+    align-items: start;
+    padding: 24px;
+  }
+  .brief > *, #result > * { grid-column: 2; }
+  .brief > .sword, #result > .sword { grid-column: 1; grid-row: 1 / -1; align-self: center; margin: 0; }
+  .brief > .spec { margin-top: 14px; }
+  #test:not([hidden]) { padding: 24px; }
+  #summary:not([hidden]) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 360px;
+    grid-template-rows: repeat(8, auto) 1fr;
+    column-gap: 32px;
+    align-items: start;
+  }
+  #summary > * { grid-column: 2; }
+  #summary > .sword { grid-column: 1; grid-row: 1 / -1; align-self: center; margin: 0; }
+}
+/* Room for the five tests side by side. */
+@media (min-width: 1200px) {
+  .trials { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); }
+  .trials li { border-top: 0; border-left: 1px solid var(--line); padding: 4px 16px; align-content: start; }
+  .trials li:first-child { border-left: 0; padding-left: 0; }
+}

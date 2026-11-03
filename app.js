@@ -1419,7 +1419,9 @@ function setup() {
   });
   hs.addEventListener("pointermove", (e) => {
     if (state.phase !== "plunge" || !state.drag) return;
-    const w = hs.getBoundingClientRect().width;
+    // Capped at the phone-width scene's size, so a wide screen's bigger
+    // scene doesn't make the steering slower.
+    const w = Math.min(hs.getBoundingClientRect().width, 600);
     const to = state.drag.steer + ((e.clientX - state.drag.x) / w) * DRAG_STEER;
     state.plunge = steer(state.plunge, C, stageTime(e.timeStamp), to);
   });
