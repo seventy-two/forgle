@@ -95,8 +95,17 @@ export function square(score) {
   return "🟥";
 }
 
-// shareText is the result players copy and share.
+// STAGE_NAMES is each stage's name in the summary and the share text.
+export const STAGE_NAMES = { forge: "Forge", grind: "Grind", harden: "Harden", temper: "Temper", test: "Tests" };
+
+// shareText is the result players copy and share: the total, a square per
+// stage, then each stage's score (dailies shows those under the total).
 export function shareText(number, total, scores, url) {
-  const stages = ["forge", "grind", "harden", "temper", "test"];
-  return [`Forgle #${number} · ${total}/100`, stages.map((k) => square(scores[k])).join(""), url].join("\n");
+  const stages = Object.keys(STAGE_NAMES);
+  return [
+    `Forgle #${number} · ${total}/100`,
+    stages.map((k) => square(scores[k])).join(""),
+    stages.map((k) => `${STAGE_NAMES[k]} ${scores[k]}`).join(" · "),
+    url,
+  ].join("\n");
 }

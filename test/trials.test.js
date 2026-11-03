@@ -53,5 +53,5 @@ test("the overall score, verdict and share", () => {
   assert.equal(verdict(95, false), "It will kill.");
   assert.match(verdict(95, true), /cracked/);
   assert.equal(square(90) + square(70) + square(40) + square(10), "🟩🟨🟧🟥");
-  assert.equal(shareText(3, 82, { ...all, temper: 50 }, "https://0x48.io/forgle/"), "Forgle #3 · 82/100\n🟩🟩🟩🟧🟩\nhttps://0x48.io/forgle/");
+  assert.equal(shareText(3, 82, { ...all, temper: 50 }, "https://0x48.io/forgle/"), "Forgle #3 · 82/100\n🟩🟩🟩🟧🟩\nForge 100 · Grind 100 · Harden 100 · Temper 50 · Tests 100\nhttps://0x48.io/forgle/");
 });

@@ -15,7 +15,7 @@ import {
   newPlunge, steer, tiltAt, meanTilt, hardness, strain, warp, hardenScore,
 } from "./harden.js";
 import { TEMPER_TIME, STRIPS, CHART, temperedHardness, temperFor, oxideCSS, newTemper, torch, temperScore } from "./temper.js";
-import { trials, WEIGHTS, totalScore, verdict, square, shareText } from "./trials.js";
+import { trials, WEIGHTS, totalScore, verdict, square, shareText, STAGE_NAMES } from "./trials.js";
 
 // "#12" plays an earlier day (from dailies' Missed list): it isn't counted
 // by the server.
@@ -1333,7 +1333,7 @@ function showFinal() {
   $("total").textContent = total;
   $("final-verdict").textContent = verdict(total, state.hardened.cracked);
   $("squares").textContent = ["forge", "grind", "harden", "temper", "test"].map((k) => square(scores[k])).join(" ");
-  const names = { forge: "Forge", grind: "Grind", harden: "Harden", temper: "Temper", test: "Tests" };
+  const names = STAGE_NAMES;
   $("stage-scores").innerHTML = Object.entries(scores)
     .map(([k, v]) => `<dt>${names[k]} <small>(${Math.round(WEIGHTS[k] * 100)}%)</small></dt><dd>${v}</dd>`).join("");
   $("share").hidden = !!state.practice;
