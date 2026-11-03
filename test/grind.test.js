@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  GRIND_TIME, COLUMNS, BELT, RATE, EDGE, FLIP_TIME, DT,
+  GRIND_TIME, COLUMNS, BELT, RATE, PAST, EDGE, FLIP_TIME, DT,
   geometry, give, newGrind, perfectGrind, edgeDown, underBelt, lowest, grind, flip, thickness, heightFor, edgeState, edgeLeft, grindScore,
 } from "../grind.js";
 import { commission, dayKey, STOCK } from "../game.js";
@@ -46,10 +46,15 @@ test("only the strips over the belt with their edge pushed onto it grind", () =>
 test("pushing harder grinds faster (with the square of how far), up to as far as the belt gives", () => {
   const j = 20;
   const x = cols[j].x;
-  const at = (pen) => grind(newGrind(c.bevel), cols, { x, y: cols[j].edge - pen, at: 0 }, 0.5).lines[0][j];
+  // A line at the spine, so the slower grinding past it doesn't come in.
+  const at = (pen) => grind(newGrind(1), cols, { x, y: cols[j].edge - pen, at: 0 }, 0.5).lines[0][j];
   assert.ok(Math.abs(at(PEN) - RATE * 0.5) < 2 * RATE * DT);
   assert.ok(Math.abs(at(PEN / 2) - (RATE * 0.5) / 4) < 2 * RATE * DT);
   assert.equal(at(2 * PEN), at(PEN));
+  // Past the commission's line it climbs at PAST of the speed.
+  const g0 = { ...newGrind(c.bevel), lines: [Array(COLUMNS).fill(c.bevel), Array(COLUMNS).fill(0)] };
+  const after = grind(g0, cols, { x, y: cols[j].edge - PEN, at: 0 }, 0.2).lines[0][j];
+  assert.ok(Math.abs(after - c.bevel - PAST * RATE * 0.2) < 2 * RATE * DT);
   // And never past the spine.
   assert.equal(grind(newGrind(c.bevel), cols, { x, y: cols[j].edge - PEN, at: 0 }, 60).lines[0][j], 1);
 });
@@ -96,7 +101,7 @@ test("the height for a thickness turns thickness round, and edges are judged by 
     for (const t of [3, 1.3, 1, 0.6, 0.2, 0]) assert.ok(Math.abs(thickness(col, heightFor(col, t, c.bevel), c.bevel) - t) < 1e-9);
     assert.ok(heightFor(col, 0.4, c.bevel) > heightFor(col, EDGE, c.bevel));
   }
-  assert.deepEqual([2, 1.3, 1, 0.7, 0.65, 0.4, 0.3].map(edgeState), ["thick", "ok", "ok", "ok", "over", "over", "thin"]);
+  assert.deepEqual([2, 1.4, 1, 0.6, 0.55, 0.4, 0.3].map(edgeState), ["thick", "ok", "ok", "ok", "over", "over", "thin"]);
 });
 
 test("a perfect grind scores 100, and mistakes cost", () => {

@@ -9,13 +9,14 @@
 
 import { outline } from "./blades.js";
 
-export const GRIND_TIME = 55; // seconds on the clock
+export const GRIND_TIME = 75; // seconds on the clock
 export const COLUMNS = 40; // the blade is ground in this many strips, tang to point
-export const BELT = 0.12; // how much of the blade's length the belt is wide
+export const BELT = 0.16; // how much of the blade's length the belt is wide
 export const GIVE = 0.4; // how far the belt gives, as a share of the blade's widest span
 export const RATE = 1.2; // share of the span the bevel climbs a second, pushed all the way in
+export const PAST = 0.3; // past the commission's line it climbs this much slower, so there's time to stop
 export const EDGE = 1.0; // mm: the edge to leave before the quench
-export const EDGE_OK = 0.3; // mm either side of it that's fine
+export const EDGE_OK = 0.4; // mm either side of it that's fine
 export const THIN = 0.4; // mm: thinner than this and the edge may crack in the quench
 export const FLIP_TIME = 0.6; // seconds to turn the blade over
 export const DT = 0.005; // the sampling grid, in seconds
@@ -96,7 +97,8 @@ export function lowest(g, cols, x) {
 // in the down edge's frame), and returns the new state. Every strip over
 // the belt whose edge is pushed past its top climbs at RATE times how far
 // it's pushed in (out of give), squared: a light touch grinds slowly, for
-// easing up to the line.
+// easing up to the line. Past the line it slows to PAST of that, so an
+// edge going green can be lifted off before it's ground too far.
 export function grind(g, cols, hold, t1) {
   const from = Math.max(hold.at, g.flippedAt + FLIP_TIME);
   if (t1 <= from) return g;
@@ -109,7 +111,8 @@ export function grind(g, cols, hold, t1) {
       if (!underBelt(c, hold.x)) continue;
       const pen = Math.min(pen0, edgeDown(c, g.down) - hold.y);
       if (pen <= 0) continue;
-      line[j] = Math.min(1, line[j] + RATE * (pen / pen0) ** 2 * DT);
+      const slow = line[j] >= g.bevel ? PAST : 1;
+      line[j] = Math.min(1, line[j] + slow * RATE * (pen / pen0) ** 2 * DT);
       changed = true;
     }
   }
@@ -163,10 +166,10 @@ export function edgeLeft(g, cols, j, edges = 1) {
 }
 
 // grindScore is 0–100: 60% for how closely the bevels follow the line
-// (every 1% of the span off on average costs 8.3 points of it; each strip
+// (every 1% of the span off on average costs 5.6 points of it; each strip
 // counts by its span, so the point, where the height of a line means
 // little, counts little) and 40% for the edge (every 0.1 mm outside
-// EDGE ± EDGE_OK on average costs 12.5 points of it). It also counts the
+// EDGE ± EDGE_OK on average costs 10 points of it). It also counts the
 // strips thin enough to crack in the quench. Both faces are ground alike,
 // so they're never uneven.
 export function grindScore(c, g, cols, edges = 1) {
@@ -182,8 +185,8 @@ export function grindScore(c, g, cols, edges = 1) {
   }
   lineErr /= spans;
   edgeErr /= COLUMNS;
-  const line = 100 * clamp01(1 - lineErr / 0.12);
-  const edge = 100 * clamp01(1 - edgeErr / 0.8);
+  const line = 100 * clamp01(1 - lineErr / 0.18);
+  const edge = 100 * clamp01(1 - edgeErr / 1.0);
   return {
     score: Math.round(0.6 * line + 0.4 * edge),
     line: Math.round(line),

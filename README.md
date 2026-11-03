@@ -60,11 +60,14 @@ with an even 1 mm edge.
   (2.9–4.5 mm, varying along the blade each day) to 1 mm as the bevel
   reaches the day's line, and on past it. Both faces are ground alike.
   The ground bevel is coloured strip by strip for its edge: pale while
-  over 1.3 mm, green to 0.7, amber to 0.4, red below (it may crack), and a
+  over 1.4 mm, green to 0.6, amber to 0.4, red below (it may crack), and a
   red dotted line marks the height where it gets there.
 - Double-edged blades are turned over (F) to grind the other edge.
-- 55 seconds. 60% for the lines, weighted by the blade's width so the
-  point counts little, and 40% for the edge (1 mm ± 0.3). Strips under
+- Past the line the bevel climbs at 30% of the speed, so there's time to
+  stop once it turns green. The belt is 16% of the blade's length wide.
+- 75 seconds. 60% for the lines, weighted by the blade's width so the
+  point counts little (18% of the span off on average loses it all), and
+  40% for the edge (1 mm ± 0.4). Strips under
   0.4 mm are kept for the quench.
 
 ## Harden
