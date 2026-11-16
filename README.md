@@ -48,7 +48,10 @@ with an even 1 mm edge.
   (or ↑ ↓ ← →). The sword is drawn as on the commission, true to life with
   its hilt; the scene shows 0.9 of the blade's length around the belt, and
   along the blade it moves 1.5 times as far as the pointer, so one drag
-  covers the whole blade. The belt is 16% of the blade's length wide.
+  covers the whole blade. The grinder is drawn from the side: the belt
+  runs down a flat platen between two small wheels, back round the drive
+  wheel and up over the tracking wheel. The platen is 16% of the blade's
+  length long, and the stretch of edge on it is what grinds.
 - The sword is rocked (up to 40°) so the stretch of edge over the belt
   sits flat on it: every strip under the belt is pressed alike, and the
   belt's centre can run 5% of the blade's length past the guard and 6.5%
@@ -146,6 +149,7 @@ It's a static page with no server.
   hardness. `trials.js`: the tests, the overall score and the share text.
 - `hilts.js`: the hilt drawn on the commission card for each blade.
   `crack.js`: a quench crack, opening at the edge and running in.
+  `belt.js`: the path of the grinder's belt round its wheels.
 - `app.js` draws it and handles input.
 
 ## Running

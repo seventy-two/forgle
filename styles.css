@@ -247,10 +247,23 @@ dialog .primary { width: 100%; }
 .grinder .goal { fill: none; stroke: #ffb27a; stroke-width: 1.5; stroke-dasharray: 5 4; vector-effect: non-scaling-stroke; }
 .grinder .limit { fill: none; stroke: #ff5a4a; stroke-width: 1.5; stroke-dasharray: 1 3; stroke-linecap: round; vector-effect: non-scaling-stroke; }
 .grinder .line { fill: none; stroke: #ffffff; stroke-width: 1.5; vector-effect: non-scaling-stroke; }
-.grinder .belt { fill: #4a3c32; stroke: #6b5a4c; stroke-width: 1; vector-effect: non-scaling-stroke; }
-.grinder .grit { fill: none; stroke: #7d6a5a; stroke-width: 2; stroke-dasharray: 3 6; vector-effect: non-scaling-stroke; animation: belt 0.2s linear infinite; }
-.grinder .wheel { fill: #2c2622; }
-.grinder.touching .belt { stroke: #ffb27a; }
+/* The belt grinder: painted frame, bare steel arm and platen, aluminium wheels. */
+.grinder .machine * { vector-effect: non-scaling-stroke; }
+.grinder .motor, .grinder .frame { fill: #2e3a44; stroke: #4c5c69; stroke-width: 1; }
+.grinder .fins { fill: none; stroke: #232d35; stroke-width: 2; }
+.grinder .strut { fill: none; stroke: #3a4854; stroke-linecap: round; vector-effect: none; }
+.grinder .arm { fill: #6a6f77; stroke: #8d939b; stroke-width: 1; }
+.grinder .bolt { fill: #23272c; stroke: #8d939b; stroke-width: 1; }
+.grinder .platen { fill: #9aa0a8; }
+.grinder .wheel { stroke-width: 1; }
+.grinder .wheel.idler { fill: #a7adb5; stroke: #5d6168; }
+.grinder .wheel.drive { fill: #7d838b; stroke: #4a4e55; }
+.grinder .hole { fill: #1f2428; }
+.grinder .hub { fill: #2c2f33; stroke: #c3c8ce; stroke-width: 1; }
+.grinder .belt { fill: none; stroke: #6d4a34; stroke-linejoin: round; vector-effect: none; }
+.grinder .grit { fill: none; stroke: #a47a5c; stroke-width: 2; stroke-dasharray: 3 6; animation: belt 0.16s linear infinite; }
+.grinder .contact { fill: url(#gglow); opacity: 0; transition: opacity 0.12s ease; pointer-events: none; }
+.grinder.touching .contact { opacity: calc(0.35 + 0.65 * var(--p, 0)); }
 @keyframes belt { to { stroke-dashoffset: -9; } }
 .side { position: absolute; bottom: 7px; left: 12px; margin: 0; font-size: 0.62rem; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: var(--smithy-muted); }
 #gscene.flipping svg .held { opacity: 0.3; }

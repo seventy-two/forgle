@@ -7,6 +7,7 @@ import {
 import { glowCSS, glowStrength, colourName } from "./glow.js";
 import { hilt } from "./hilts.js";
 import { crackLines } from "./crack.js";
+import { beltLoop } from "./belt.js";
 import {
   COLUMNS, BELT, X0, X1, FLIP_TIME, EDGE, EDGE_OK, THIN, grindTime, geometry, newGrind, perfectGrind, edgeDown, underBelt, edgeLeft, thickness, heightFor, edgeState, grind, flip, grindScore,
 } from "./grind.js";
@@ -654,17 +655,7 @@ function buildGrinder() {
   $("gmeter").style.setProperty("--ok1", pc(EDGE - EDGE_OK));
   $("gmeter").style.setProperty("--thin", pc(THIN));
 
-  // The grinder: a belt round a wheel, in front of the blade so an edge
-  // pushed in sinks into it.
-  const w = BELT * L, bottom = 0.4 * W;
-  const r = w / 2;
-  const grinder = el("g", { class: "machine" });
-  const loop = `M${-r},${bottom}L${-r},${r}A${r},${r} 0 0 1 ${r},${r}L${r},${bottom}Z`;
-  grinder.append(
-    el("path", { class: "belt", d: loop }),
-    el("path", { class: "grit", d: `M${-r * 0.5},${bottom}L${-r * 0.5},${r * 0.4}M0,${bottom}L0,0M${r * 0.5},${bottom}L${r * 0.5},${r * 0.4}` }),
-    el("circle", { class: "wheel", cx: 0, cy: r, r: r * 0.35 }),
-  );
+  const grinder = machine((BELT * L) / 2);
   gscene.blade = el("g", { class: "held" });
   const steel = el("path", { class: "steel", d: outlinePath(shape, { sy: gscene.sy, bend: BEND }) });
   // Its hilt, as on the commission: the guard over the blade, the rest
@@ -686,6 +677,13 @@ function buildGrinder() {
   // Each edge's ground bevel is coloured strip by strip for how thick its
   // edge is (see EDGE_COLOURS).
   const defs = el("defs");
+  const glow = el("radialGradient", { id: "gglow" });
+  glow.append(
+    el("stop", { offset: "0%", "stop-color": "#ffd9a0", "stop-opacity": "0.85" }),
+    el("stop", { offset: "45%", "stop-color": "#ff9a3a", "stop-opacity": "0.3" }),
+    el("stop", { offset: "100%", "stop-color": "#ff9a3a", "stop-opacity": "0" }),
+  );
+  defs.append(glow);
   gscene.stops = [0, 1].map((e) => {
     const grad = el("linearGradient", { id: `gedge${e}`, gradientUnits: "userSpaceOnUse", x1: 0, x2: L, y1: 0, y2: 0 });
     defs.append(grad);
@@ -707,9 +705,62 @@ function buildGrinder() {
   limit.setAttribute("d", each(state.cols.map((c) => Math.min(1, heightFor(c, THIN, C.bevel)))));
   // Upright: the point up, the edge to the belt on the right.
   const world = el("g", { transform: "rotate(-90)" });
-  world.append(gscene.blade, grinder);
-  svg.replaceChildren(world);
+  world.append(gscene.blade);
+  svg.replaceChildren(world, grinder);
   $("flip").hidden = BLADE.edges !== 2;
+}
+
+// machine draws the belt grinder, seen from the side with its face on the
+// left: the belt runs down a flat platen between two small wheels, back to
+// the drive wheel and up over the tracking wheel. u is half the platen's
+// length (mm); the middle of the belt's face is at the origin, x into the
+// machine and y down. It goes in front of the blade, so an edge pushed in
+// sinks behind the belt.
+function machine(u) {
+  const bt = 0.12 * u; // the belt's thickness
+  const idler = 0.26 * u;
+  const wheels = [
+    { x: bt + idler, y: -u, r: idler, cls: "idler" },
+    { x: bt + idler, y: u, r: idler, cls: "idler" },
+    { x: bt + 3.1 * u, y: 1.15 * u, r: 0.85 * u, cls: "drive" },
+    { x: bt + 2.0 * u, y: -1.95 * u, r: 0.42 * u, cls: "idler" },
+  ];
+  // The belt's middle runs half its thickness outside the wheels.
+  const { d } = beltLoop(wheels.map((w) => ({ ...w, r: w.r + bt / 2 })));
+  const g = el("g", { class: "machine" });
+  const [top, , drive, track] = wheels;
+  const post = bt + 2.25 * u; // the upright everything hangs off
+  g.append(
+    // The motor behind the drive wheel, and the upright down to the bench.
+    el("rect", { class: "motor", x: drive.x - 0.2 * u, y: drive.y - 0.7 * u, width: 6 * u, height: 1.4 * u, rx: 0.2 * u }),
+    el("path", { class: "fins", d: [0.9, 1.3, 1.7, 2.1, 2.5].map((k) => `M${drive.x + k * u},${drive.y - 0.6 * u}v${1.2 * u}`).join("") }),
+    el("rect", { class: "frame", x: post, y: -0.55 * u, width: 0.6 * u, height: 12 * u, rx: 0.08 * u }),
+    // The arm up to the tracking wheel, and the tool arm out to the platen.
+    el("path", { class: "strut", d: `M${post + 0.3 * u},${-0.3 * u}L${track.x},${track.y}`, "stroke-width": 0.22 * u }),
+    el("rect", { class: "arm", x: bt + 0.5 * u, y: -0.17 * u, width: post + 0.4 * u - bt - 0.5 * u, height: 0.34 * u, rx: 0.04 * u }),
+    el("circle", { class: "bolt", cx: post + 0.3 * u, cy: 0, r: 0.07 * u }),
+    // The platen's bracket, and the platen itself right behind the belt.
+    el("rect", { class: "frame", x: bt + 0.16 * u, y: top.y - 0.12 * u, width: 0.6 * u, height: 2 * u + 0.24 * u, rx: 0.1 * u }),
+    el("rect", { class: "platen", x: bt, y: -u + 0.7 * idler, width: 0.16 * u, height: 2 * u - 1.4 * idler }),
+  );
+  for (const w of wheels) {
+    g.append(el("circle", { class: `wheel ${w.cls}`, cx: w.x, cy: w.y, r: w.r }));
+    if (w.cls === "drive") {
+      // Lightening holes round the hub.
+      for (let k = 0; k < 5; k++) {
+        const a = (k * 2 * Math.PI) / 5 + 0.3;
+        g.append(el("circle", { class: "hole", cx: w.x + 0.55 * w.r * Math.cos(a), cy: w.y + 0.55 * w.r * Math.sin(a), r: 0.17 * w.r }));
+      }
+    }
+    g.append(el("circle", { class: "hub", cx: w.x, cy: w.y, r: Math.max(0.28 * w.r, 0.06 * u) }));
+  }
+  g.append(
+    el("path", { class: "belt", d, "stroke-width": bt }),
+    el("path", { class: "grit", d }),
+    // Where the edge meets the belt glows when it's pressed on.
+    el("ellipse", { class: "contact", cx: 0, cy: 0, rx: 0.5 * u, ry: 1.1 * u }),
+  );
+  return g;
 }
 
 // EDGE_COLOURS colour the ground bevel: pale while the edge is still
@@ -775,7 +826,7 @@ function drawGauges() {
   band.style.width = `${Math.max(0, at(thin) - at(thick))}%`;
   band.className = `band ${edgeState(thin)}`;
   $("gedge").textContent = thick - thin < 0.15 ? `${thin.toFixed(1)} mm` : `${thin.toFixed(1)}–${thick.toFixed(1)} mm`;
-  $("gpress").style.setProperty("--p", p.p.toFixed(3));
+  $("gscene").style.setProperty("--p", p.p.toFixed(3));
 }
 
 // scenePoint turns a pointer event's position into the scene's coordinates.
