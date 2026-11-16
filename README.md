@@ -46,7 +46,8 @@ with an even 1 mm edge.
   the scene; the player holds the sword upright, point up, and drags it
   around: up and down to run it along the belt, right to lean the edge in
   (or ↑ ↓ ← →). The sword is drawn as on the commission, true to life with
-  its hilt; the scene shows 0.9 of the blade's length around the belt , and
+  its hilt; the scene shows 0.9 of the blade's length around the belt (or
+  22 of its widths if that's less, so a rapier is seen closer up), and
   along the blade it moves 1.5 times as far as the pointer, so one drag
   covers the whole blade. The grinder is drawn from the side: the belt
   runs down a flat platen between two small wheels, back round the drive
@@ -132,9 +133,10 @@ a line of squares to share.
 
 It's a static page with no server.
 
-- `game.js`: the daily commission (seeded by the UTC date; the 12 blades
-  come round in a shuffled cycle, once each every 12 days) and scoring.
-  A commission's looks (a pattern-welded
+- `game.js`: the daily commission (seeded by the UTC date) and scoring.
+  The blades come round in a shuffled cycle, once each time round: the
+  first 12 for the first 36 days, then all 20 from #37 (20 Nov 2026), so
+  earlier days stay as they were. A commission's looks (a pattern-welded
   billet's pattern, a decoration) are drawn apart from its numbers, so
   they can change without moving a day's game.
 - `blades.js`: the blade templates (width profile, tip, curve) and drawing
@@ -166,7 +168,7 @@ It's a static page with no server.
   - On 60% of its other days, a blade with a decoration carries it: the
     Viking sword's +VLFBERH+T and the arming sword's +INNOMINEDOMINI+
     inlaid in their fullers, runes along the seax's back, seven brass
-    stars down the jian, a gilt cartouche on the shamshir, a
+    stars down the jian, a gilt cartouche on the shamshir and kilij, a
     bo-hi on the Japanese blades. The card names it.
 - `app.js` draws it and handles input.
 

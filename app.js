@@ -667,7 +667,8 @@ function buildGrinder() {
   // on the belt, and is as wide as the page allows, the belt's face about
   // two thirds of the way across.
   const box = svg.getBoundingClientRect();
-  const H = 0.9 * L;
+  // A slim blade is shown closer up, so its bevel can be seen.
+  const H = Math.min(0.9 * L, 22 * Math.max(...widths));
   gscene.H = H;
   const W = box.height > 0 ? (H * box.width) / box.height : 0.6 * L;
   svg.setAttribute("viewBox", `${-0.65 * W} ${-H / 2} ${W} ${H}`);

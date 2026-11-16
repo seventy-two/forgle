@@ -69,13 +69,19 @@ export function dayNumber(key) {
   return Math.round((Date.parse(key) - Date.parse(FIRST_DAY)) / 86400000) + 1;
 }
 
+export const FIRST_BLADES = 12; // the game began with this many blades, and went round them three times
+export const MORE_FROM = 36; // how many days in the rest joined: #37, 20 Nov 2026
+
 // bladeForDay picks the day's kind of blade. The blades come round in a
-// shuffled cycle, so each turns up once every BLADES.length days.
+// shuffled cycle, so each turns up once every time round: the first twelve
+// for the first 36 days (so earlier days stay as they were), then all of
+// them.
 export function bladeForDay(key) {
   const n = dayNumber(key) - 1;
-  const cycle = Math.floor(n / BLADES.length);
-  const order = shuffle(BLADES, mulberry32(hash(SEED + ":cycle:" + cycle)));
-  return order[((n % BLADES.length) + BLADES.length) % BLADES.length];
+  const [list, m, salt] = n < MORE_FROM ? [BLADES.slice(0, FIRST_BLADES), n, ":cycle:"] : [BLADES, n - MORE_FROM, ":round:"];
+  const cycle = Math.floor(m / list.length);
+  const order = shuffle(list, mulberry32(hash(SEED + salt + cycle)));
+  return order[((m % list.length) + list.length) % list.length];
 }
 
 // commission builds a day's commission: the blade, its steel, its size and

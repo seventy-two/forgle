@@ -25,6 +25,14 @@ export const HILT_STYLES = {
   longsword: { grip: 0.3, guard: "cross", span: 4, pommel: "wheel", wrap: "spiral" },
   cutlass: { grip: 0.17, guard: "cross", span: 2.4, pommel: "cap", ribbed: true },
   falcata: { grip: 0.2, guard: "cross", span: 1.4, pommel: "hook", ribbed: true },
+  wakizashi: { grip: 0.32, guard: "tsuba", pommel: "kashira", wrap: "ito" },
+  nodachi: { grip: 0.36, guard: "tsuba", pommel: "kashira", wrap: "ito" },
+  xiphos: { grip: 0.2, guard: "cross", span: 1.6, pommel: "cap", ribbed: true },
+  claymore: { grip: 0.3, guard: "cross", span: 4.2, slope: 0.3, pommel: "wheel", wrap: "spiral" },
+  rapier: { grip: 0.11, guard: "cup", span: 7, pommel: "knob", wrap: "spiral", scale: 1.5 },
+  cinquedea: { grip: 0.24, guard: "cross", span: 1.36, slope: 0.12, pommel: "cap", pins: 3, scale: 0.42 },
+  kilij: { grip: 0.15, guard: "cross", span: 2.6, pommel: "hook", pins: 2 },
+  kukri: { grip: 0.28, guard: "ferrule", pommel: "cap", ribbed: true },
 };
 
 const f = (n) => Number(n.toFixed(2));

@@ -16,6 +16,10 @@
 // decor lists the decorations a commission may ask for on some days: an
 // inscription inlaid between two lanes (text is its glyphs, see detail.js),
 // seven inlaid stars, a gilt cartouche, or a second fuller.
+//
+// The first twelve are the blades the game began with; the rest joined on
+// 20 Nov 2026 (see bladeForDay in game.js), so the first twelve must stay
+// first.
 
 export const TIP_STYLES = {
   // len is the point's length as a multiple of the last section's width;
@@ -114,6 +118,61 @@ export const BLADES = [
     curve: { amount: [20, 30], power: 2 }, profile: (x) => 0.8 + 0.45 * Math.sin(Math.PI * x * 0.85),
     detail: { grooves: { at: [0.1, 0.17, 0.24], from: 0.05, to: 0.72 } },
     about: "An Iberian sword whose forward-curved blade swells towards the point.",
+  },
+  {
+    id: "wakizashi", name: "wakizashi", edges: 1, align: "spine", tip: "kissaki", length: [500, 580], width: [28, 31], bevel: [0.7, 0.8], hardness: [59, 61],
+    curve: { amount: [-12, -8], power: 2 }, steels: ["w2", "1095"],
+    profile: (x) => 1 - 0.22 * x,
+    detail: { hamon: true, yokote: true },
+    decor: [BOHI],
+    about: "The katana's short companion, worn beside it and kept on indoors.",
+  },
+  {
+    id: "nodachi", name: "nodachi", edges: 1, align: "spine", tip: "kissaki", length: [900, 980], width: [33, 36], bevel: [0.7, 0.8], hardness: [58, 60],
+    curve: { amount: [-36, -28], power: 2 }, steels: ["w2", "1095"],
+    profile: (x) => 1 - 0.3 * x,
+    detail: { hamon: true, yokote: true },
+    decor: [BOHI],
+    about: "A great field sword, too long to draw from the hip and carried across the back.",
+  },
+  {
+    id: "xiphos", name: "xiphos", edges: 2, tip: "long", length: [520, 600], width: [42, 50], bevel: [0.5, 0.65], hardness: [54, 57],
+    profile: (x) => 0.8 + 0.3 * Math.sin(Math.PI * Math.pow(x, 1.7)),
+    detail: { ridge: [0, 1] },
+    about: "The Greek hoplite's sidearm, a leaf-shaped blade that swells towards the point.",
+  },
+  {
+    id: "claymore", name: "claymore", edges: 2, tip: "acute", length: [1000, 1080], width: [50, 56], bevel: [0.5, 0.7], hardness: [52, 55],
+    profile: (x) => 1 - 0.38 * x,
+    detail: { fuller: { at: [0.42, 0.58], from: 0, to: 0.3 }, ridge: [0.3, 1] },
+    about: "The Highland two-hander: a broad blade, and a guard whose arms slope towards it.",
+  },
+  {
+    id: "rapier", name: "rapier", edges: 2, tip: "long", length: [960, 1040], width: [22, 26], bevel: [0.6, 0.8], hardness: [52, 55],
+    profile: (x) => 1 - 0.5 * x,
+    detail: { ridge: [0, 1] },
+    about: "A long, slim thrusting sword for the street and the duel, behind a cup of steel.",
+  },
+  {
+    id: "cinquedea", name: "cinquedea", edges: 2, tip: "acute", length: [420, 500], width: [80, 92], bevel: [0.3, 0.45], hardness: [53, 56],
+    profile: (x) => 1 - 0.6 * x,
+    detail: { grooves: { at: [0.34, 0.45, 0.55, 0.66], from: 0.03, to: 0.5 }, ridge: [0.5, 1] },
+    about: "An Italian townsman's blade, five fingers wide at the guard and tapering like a wedge.",
+  },
+  {
+    id: "kilij", name: "kilij", edges: 1, align: "edge", tip: "clip", length: [720, 800], width: [30, 34], bevel: [0.5, 0.62], hardness: [56, 59],
+    curve: { amount: [-75, -58], power: 2.6 },
+    profile: (x) => 1 - 0.12 * x + (x > 0.62 ? 0.3 * Math.sin(((x - 0.62) / 0.38) * 0.75 * Math.PI) : 0),
+    detail: { fuller: { at: [0.1, 0.26], from: 0.03, to: 0.56 } },
+    decor: [{ kind: "cartouche", name: "a gilt cartouche by the guard", in: [0.3, 0.56], from: 0.05, long: 0.07 }],
+    about: "The Ottoman sabre: a deep curve, and a back that flares near the point for weight in the cut.",
+  },
+  {
+    id: "kukri", name: "kukri", edges: 1, align: "spine", tip: "falcata", length: [400, 470], width: [42, 50], bevel: [0.4, 0.55], hardness: [55, 58],
+    curve: { amount: [38, 52], power: 1.8 },
+    profile: (x) => 0.72 + 0.5 * Math.sin(Math.PI * Math.pow(x, 1.4) * 0.88),
+    detail: { grooves: { at: [0.1, 0.17], from: 0.05, to: 0.6 } },
+    about: "The Gurkha's forward-curving knife, heavy towards the point like a hatchet.",
   },
 ];
 export const bladeById = Object.fromEntries(BLADES.map((b) => [b.id, b]));
