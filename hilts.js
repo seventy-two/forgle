@@ -9,14 +9,14 @@
 
 export const HILT_STYLES = {
   gladius: { grip: 0.19, guard: "block", pommel: "ball", ribbed: true },
-  seax: { grip: 0.32, guard: "ferrule", pommel: "cap" },
+  seax: { grip: 0.32, guard: "ferrule", pommel: "cap", pins: 3 },
   katana: { grip: 0.36, guard: "tsuba", pommel: "kashira", wrap: "ito" },
   falchion: { grip: 0.2, guard: "cross", span: 3, pommel: "wheel", wrap: "spiral" },
   shamshir: { grip: 0.16, guard: "cross", span: 2.6, pommel: "cap", wrap: "spiral" },
   arming: { grip: 0.18, guard: "cross", span: 3.4, pommel: "wheel", wrap: "spiral" },
   viking: { grip: 0.13, guard: "cross", span: 1.9, pommel: "lobed", wrap: "spiral" },
   jian: { grip: 0.24, guard: "cross", span: 2, pommel: "cap", wrap: "spiral" },
-  messer: { grip: 0.2, guard: "cross", span: 2.8, pommel: "cap", ribbed: true },
+  messer: { grip: 0.2, guard: "cross", span: 2.8, pommel: "cap", pins: 3 },
   longsword: { grip: 0.3, guard: "cross", span: 4, pommel: "wheel", wrap: "spiral" },
   cutlass: { grip: 0.17, guard: "cross", span: 2.4, pommel: "cap", ribbed: true },
   falcata: { grip: 0.2, guard: "cross", span: 1.4, pommel: "hook", ribbed: true },
@@ -78,6 +78,10 @@ export function hilt(bladeId, width, length, cy = 0) {
   const gh = w * (st.guard === "tsuba" ? 0.42 : 0.3);
   const grip = gripPath(a - 1, b, cy, gh);
   add("path", st.guard === "block" || st.guard === "ferrule" ? "wood" : "hilt", { d: grip });
+  if (st.pins) {
+    // Pins through the tang, holding the grip's scales on.
+    for (let i = 1; i <= st.pins; i++) add("circle", "fitting", { cx: f(a + (gripLen * i) / (st.pins + 1)), cy: f(cy), r: f(w * 0.075) });
+  }
   if (st.wrap === "spiral") {
     const step = w * 0.28;
     const lines = [];
@@ -86,6 +90,8 @@ export function hilt(bladeId, width, length, cy = 0) {
   } else if (st.wrap === "ito") {
     // The katana's diamond wrap: crossing bands with the ray skin showing between.
     const step = w * 0.55;
+    // A menuki, the ornament under the wrap.
+    add("ellipse", "brass", { cx: f(a + gripLen * 0.42), cy: f(cy), rx: f(w * 0.42), ry: f(gh * 0.38), clip: grip });
     const lines = [];
     for (let x = a + step * 0.4; x < b - step * 0.2; x += step) {
       lines.push(`M${f(x)},${f(cy - gh * 1.2)} L${f(x + step / 2)},${f(cy + gh * 1.2)}`);
@@ -107,6 +113,7 @@ export function hilt(bladeId, width, length, cy = 0) {
   if (st.pommel === "wheel") {
     const rx = w * 0.2, ry = w * 0.42;
     add("ellipse", "fitting", { cx: f(a - rx * 0.7), cy: f(cy), rx: f(rx), ry: f(ry) });
+    add("ellipse", "inset", { cx: f(a - rx * 0.7), cy: f(cy), rx: f(rx * 0.5), ry: f(ry * 0.55) }); // its recessed centre
     add("rect", "fitting", { x: f(a - rx * 1.7 - w * 0.08), y: f(cy - w * 0.08), width: f(w * 0.12), height: f(w * 0.16), rx: f(w * 0.03) });
     x0 = a - rx * 1.7 - w * 0.08;
   } else if (st.pommel === "ball") {
@@ -123,6 +130,8 @@ export function hilt(bladeId, width, length, cy = 0) {
     add("path", "fitting", {
       d: `M${f(a - t + 0.5)},${f(cy - w * 0.55)} Q${f(xc - r)},${f(cy - w * 0.62)} ${f(xc - r * 0.6)},${f(cy - w * 0.22)} Q${f(xc - r * 1.4)},${f(cy)} ${f(xc - r * 0.6)},${f(cy + w * 0.22)} Q${f(xc - r)},${f(cy + w * 0.62)} ${f(a - t + 0.5)},${f(cy + w * 0.55)} Z`,
     });
+    // The grooves between its lobes.
+    add("path", "inset", { d: [-1, 1].map((sgn) => `M${f(a - t)},${f(cy + sgn * w * 0.2)} L${f(xc - r * 0.75)},${f(cy + sgn * w * 0.2)}`).join("") });
     x0 = xc - r * 1.4;
   } else if (st.pommel === "kashira") {
     const t = w * 0.28;

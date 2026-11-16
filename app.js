@@ -1,5 +1,6 @@
 import { dayKey, pastKey, commission, forgeScore, barLength } from "./game.js";
-import { bladeById, bender, outline, outlinePath } from "./blades.js";
+import { bladeById, bender, outline, outlinePath, polyPath } from "./blades.js";
+import { bladeDetail } from "./detail.js";
 import { steelById } from "./steels.js";
 import {
   FORGE_TIME, SWEET, SPAN, newBar, advance, setFire, strike, tempAt, markerAt, sectionLengths,
@@ -178,7 +179,23 @@ const sound = {
 
 // --- The commission card
 
-function swordSVG(svg, widths, lengths, { target, crack } = {}) {
+// detailGroup draws a blade's details (see detail.js) over its outline:
+// opts say how far it's ground and whether it's hardened, draw how the
+// outline is drawn (see outlinePath).
+function detailGroup(shape, opts = {}, draw = {}) {
+  const g = el("g", { class: "detail" });
+  for (const part of bladeDetail(BLADE, shape, opts)) g.append(el("path", { class: part.cls, d: polyPath(part.pts, part.closed, draw) }));
+  return g;
+}
+
+// groundBevels is how high the blade's bevels are ground: the player's, or
+// the commission's on a blade that skipped the grinder for practice.
+const groundBevels = () => (state.g ? state.g.lines : [C.bevel, C.bevel]);
+
+// swordSVG draws the sword as on the commission. bevels is how far it's
+// ground (left out before the grinder) and hamon whether it's hardened;
+// target adds the commission's outline and crack a crack.
+function swordSVG(svg, widths, lengths, { target, crack, bevels, hamon } = {}) {
   const shape = outline(BLADE, widths, lengths, { curve: C.curve, ref: Math.max(...C.widths) });
   const L = C.length;
   // Centre the hilt on the middle of the blade where it meets the guard.
@@ -207,7 +224,11 @@ function swordSVG(svg, widths, lengths, { target, crack } = {}) {
     svg.append(e);
   };
   h.parts.filter((p) => !p.front).forEach(draw);
-  svg.append(el("path", { class: "steel", d: outlinePath(shape) }));
+  svg.append(
+    el("path", { class: "steel", d: outlinePath(shape) }),
+    detailGroup(shape, { bevels, hamon }),
+    el("path", { class: "steel-line", d: outlinePath(shape) }),
+  );
   h.parts.filter((p) => p.front).forEach(draw);
   if (target) {
     const goal = outline(BLADE, C.widths, C.lengths, { curve: C.curve, ref: Math.max(...C.widths) });
@@ -234,7 +255,7 @@ function renderBrief() {
   const article = /^[aeiou]/i.test(BLADE.name) ? "An" : "A";
   $("brief-title").textContent = `${article} ${BLADE.name} in ${STEEL.name}`;
   $("brief-about").textContent = BLADE.about;
-  swordSVG($("sword"), C.widths, C.lengths);
+  swordSVG($("sword"), C.widths, C.lengths, { bevels: [C.bevel, C.bevel], hamon: true });
   const rows = [
     ["Length", `${cm(C.length)} cm`],
     ["Width", `${cm(C.width)} cm at the guard<small>${cm(C.widths.at(-1))} cm where the point starts</small>`],
@@ -697,7 +718,7 @@ function buildGrinder() {
   gscene.line = [el("path", { class: "line" }), el("path", { class: "line" })];
   const goal = el("path", { class: "goal" });
   const limit = el("path", { class: "limit" });
-  gscene.blade.append(defs, ...h.parts.filter((p) => !p.front).map(part), steel, ...gscene.ground, limit, goal, ...gscene.line);
+  gscene.blade.append(defs, ...h.parts.filter((p) => !p.front).map(part), steel, detailGroup(shape, {}, { sy: gscene.sy, bend: BEND }), ...gscene.ground, limit, goal, ...gscene.line);
   gscene.blade.append(...h.parts.filter((p) => p.front).map(part));
   const each = (f) => linePath(f, 0) + (BLADE.edges === 2 ? linePath(f, 1) : "");
   goal.setAttribute("d", each(state.cols.map(() => C.bevel)));
@@ -965,7 +986,7 @@ function finishGrind(t) {
   $("result").hidden = false;
   kicker("Grinding");
   $("score").textContent = s.score;
-  swordSVG($("final"), state.forged.widths, state.forged.lengths, { target: true });
+  swordSVG($("final"), state.forged.widths, state.forged.lengths, { target: true, bevels: groundBevels() });
   const rows = [
     ["Bevel lines", `${s.line}/100`],
     ["Lines off on average", `${(s.lineErr * 100).toFixed(1)}%`],
@@ -1014,7 +1035,7 @@ function startHarden() {
   const svg = $("hbar");
   svg.setAttribute("viewBox", `${vb.x} ${vb.y} ${vb.w} ${vb.h}`);
   hscene.path = el("path", { class: "hot", d: outlinePath(shape, { bend: BEND }) + tangPath(shape) });
-  svg.replaceChildren(hscene.path);
+  svg.replaceChildren(hscene.path, detailGroup(shape, { bevels: groundBevels() }, { bend: BEND }));
   // The same blade, stood on its point, for the tank: true to life, curve
   // and all, with its tip on the line.
   const k = 205 / L;
@@ -1173,7 +1194,7 @@ function showHardenResult() {
   $("result").hidden = false;
   kicker("Hardening");
   $("score").textContent = h.score;
-  swordSVG($("final"), state.forged.widths, state.forged.lengths, h.cracked ? { crack: crackAt() } : {});
+  swordSVG($("final"), state.forged.widths, state.forged.lengths, { bevels: groundBevels(), hamon: h.quenchant !== "air", ...(h.cracked ? { crack: crackAt() } : {}) });
   const air = h.quenchant === "air";
   const wanted = QUENCHES[STEEL.quench].name.toLowerCase();
   const rows = [
@@ -1264,7 +1285,7 @@ function startTemper() {
     const j = Math.max(0, Math.min(STRIPS - 1, Math.floor(x * STRIPS)));
     return (cols[j].edge - cols[j].span) * sy;
   };
-  svg.replaceChildren(defs, el("path", { class: "tang", d: tangPath(shape, sy) }), strips, el("path", { class: "outline", d }), tscene.flame);
+  svg.replaceChildren(defs, el("path", { class: "tang", d: tangPath(shape, sy) }), strips, detailGroup(shape, { bevels: groundBevels() }, { sy, bend: BEND }), el("path", { class: "outline", d }), tscene.flame);
 
   // The chart: each colour, and the hardness it leaves this blade's edge.
   const h0 = state.hardened.hrc;
@@ -1372,7 +1393,7 @@ function finishTemper(t) {
   $("result").hidden = false;
   kicker("Tempering");
   $("score").textContent = s.score;
-  swordSVG($("final"), state.forged.widths, state.forged.lengths, state.hardened.cracked ? { crack: crackAt() } : {});
+  swordSVG($("final"), state.forged.widths, state.forged.lengths, { bevels: groundBevels(), hamon: state.hardened.quenchant !== "air", ...(state.hardened.cracked ? { crack: crackAt() } : {}) });
   const [lo, hi] = C.hardness;
   const rows = [
     ["Edge in the band", `${s.edge}/100`],
@@ -1428,7 +1449,7 @@ function showFinal() {
   };
   state.scores = scores;
   swordSVG($("final-sword"), state.forged.widths, state.forged.lengths,
-    { target: true, ...(state.hardened.cracked ? { crack: crackAt() } : {}) });
+    { target: true, bevels: groundBevels(), hamon: state.hardened.quenchant !== "air", ...(state.hardened.cracked ? { crack: crackAt() } : {}) });
   const total = totalScore(scores);
   state.total = total;
   $("summary").hidden = false;

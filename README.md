@@ -150,6 +150,13 @@ It's a static page with no server.
 - `hilts.js`: the hilt drawn on the commission card for each blade.
   `crack.js`: a quench crack, opening at the edge and running in.
   `belt.js`: the path of the grinder's belt round its wheels.
+- `detail.js`: what's drawn on each blade for show, laid out in lanes
+  across its outline: the ground bevels (the commission's on the card, the
+  player's own once it's been to the grinder), a fuller, ridge or grooves
+  to suit the kind of blade, and the katana's hamon and yokote once it's
+  hardened. They're drawn as light and shade, so they work over cold,
+  glowing and tempered steel alike; where the steel's colour is being
+  read (hardening, tempering) only the lines are drawn.
 - `app.js` draws it and handles input.
 
 ## Running
