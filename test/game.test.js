@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { SECTIONS, BILLET_SCALE, dayKey, dayNumber, bladeForDay, commission, forgeScore, barLength } from "../game.js";
+import { PATTERNS } from "../detail.js";
 import { BLADES, bladeById, outline, outlinePath, pointLength, TIP_STYLES } from "../blades.js";
 import { STEELS, steelById } from "../steels.js";
 import { newBar } from "../forge.js";
@@ -24,6 +25,27 @@ test("every blade comes round once in each cycle", () => {
     const cycle = all.slice(c * BLADES.length, (c + 1) * BLADES.length);
     assert.equal(new Set(cycle).size, BLADES.length, `cycle ${c}: ${cycle}`);
   }
+});
+
+test("a commission's looks: a pattern for pattern-welded steel, a decoration on some of a blade's days", () => {
+  let patterned = 0, decorated = 0, could = 0;
+  for (const key of days(400)) {
+    const c = commission(key);
+    const blade = bladeById[c.blade];
+    assert.equal(Boolean(c.pattern), c.steel === "damascus", key);
+    if (c.pattern) {
+      assert.ok(PATTERNS[c.pattern.kind], key);
+      assert.equal(c.decor, null, key);
+      patterned++;
+    }
+    if (c.decor) assert.ok(blade.decor.includes(c.decor), key);
+    if (blade.decor && !c.pattern) could++;
+    if (c.decor) decorated++;
+  }
+  assert.ok(patterned > 20);
+  assert.ok(decorated > 0.4 * could && decorated < 0.8 * could, `${decorated} of ${could}`);
+  // A blade can be asked for by name, on any day.
+  assert.equal(commission("2026-10-15", bladeById.seax).blade, "seax");
 });
 
 test("every commission fits its blade and can be forged from its billet", () => {

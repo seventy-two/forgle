@@ -94,7 +94,12 @@ h1 { font-size: clamp(1.6rem, 6vw, 2rem); line-height: 1; margin: 0; letter-spac
 /* A blade's details (see detail.js), as light and shade over whatever
    colour its steel is: on the card, on the grinder, glowing or tempered. */
 .detail path { fill: none; stroke: none; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
-.detail .bevel { fill: rgba(255, 255, 255, 0.38); }
+.detail .pattern { stroke: rgba(0, 0, 0, 0.3); stroke-width: 0.9; }
+.detail .pattern.pale { stroke: rgba(255, 255, 255, 0.55); }
+.detail .bevel.lit { fill: rgba(255, 255, 255, 0.42); }
+.detail .bevel.shade { fill: rgba(255, 255, 255, 0.14); }
+.detail .glint { stroke: rgba(255, 255, 255, 0.7); stroke-width: 1.25; }
+.detail .back { stroke: rgba(0, 0, 0, 0.2); stroke-width: 1; }
 .detail .bevel-line { stroke: rgba(0, 0, 0, 0.3); stroke-width: 0.75; }
 .detail .fuller { fill: rgba(0, 0, 0, 0.17); }
 .detail .fuller-shade { stroke: rgba(0, 0, 0, 0.32); stroke-width: 1; }
@@ -102,10 +107,16 @@ h1 { font-size: clamp(1.6rem, 6vw, 2rem); line-height: 1; margin: 0; letter-spac
 .detail .ridge { stroke: rgba(255, 255, 255, 0.8); stroke-width: 1.25; }
 .detail .groove { stroke: rgba(0, 0, 0, 0.34); stroke-width: 1; }
 .detail .hamon { fill: rgba(255, 255, 255, 0.5); }
+.detail .hamon-line { stroke: rgba(255, 255, 255, 0.9); stroke-width: 1; }
+.detail .inlay { stroke-width: 1.25; }
+.detail .inlay.dark { stroke: rgba(0, 0, 0, 0.55); }
+.detail .inlay.gilt { stroke: #b8862b; }
+.detail .stud, .detail .plate { fill: #c79a3a; stroke: #7a5f24; stroke-width: 0.5; }
 .detail .yokote { stroke: rgba(0, 0, 0, 0.3); stroke-width: 0.75; }
 /* Where the steel's colour is what's being read, lines only. */
 #hbar .detail .bevel, #hbar .detail .fuller, #hbar .detail .hamon,
 #tbar .detail .bevel, #tbar .detail .fuller, #tbar .detail .hamon { fill: none; }
+#hbar .detail .glint, #tbar .detail .glint, #hbar .detail .hamon-line, #tbar .detail .hamon-line { stroke: none; }
 .sword .hilt, .grinder .hilt { fill: #4a3022; }
 .sword .wood, .grinder .wood { fill: #7a5536; }
 .sword .fitting, .grinder .fitting { fill: #9a9da2; stroke: #5d6168; stroke-width: 1; vector-effect: non-scaling-stroke; }
@@ -114,6 +125,10 @@ h1 { font-size: clamp(1.6rem, 6vw, 2rem); line-height: 1; margin: 0; letter-spac
 .sword .hilt, .sword .wood, .grinder .hilt, .grinder .wood { stroke: rgba(0, 0, 0, 0.35); stroke-width: 1; vector-effect: non-scaling-stroke; }
 .sword .wrap, .grinder .wrap { fill: none; stroke: rgba(0, 0, 0, 0.4); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
 .sword .rib, .grinder .rib { fill: none; stroke: rgba(0, 0, 0, 0.35); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.sword .shine, .grinder .shine { fill: none; stroke: rgba(255, 255, 255, 0.5); stroke-width: 1; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.sword .grip-shine, .grinder .grip-shine { fill: rgba(255, 255, 255, 0.13); }
+.sword .grip-shade, .grinder .grip-shade { fill: rgba(0, 0, 0, 0.2); }
+.sword .bow, .grinder .bow { fill: none; stroke: #9a9da2; stroke-width: 2.5; stroke-linecap: round; vector-effect: non-scaling-stroke; }
 .sword .inset, .grinder .inset { fill: none; stroke: rgba(0, 0, 0, 0.3); stroke-width: 1; vector-effect: non-scaling-stroke; }
 .sword .ito, .grinder .ito { fill: none; stroke: #23232a; stroke-width: 3; vector-effect: non-scaling-stroke; }
 @media (prefers-color-scheme: dark) {

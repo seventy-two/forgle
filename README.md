@@ -46,7 +46,7 @@ with an even 1 mm edge.
   the scene; the player holds the sword upright, point up, and drags it
   around: up and down to run it along the belt, right to lean the edge in
   (or ↑ ↓ ← →). The sword is drawn as on the commission, true to life with
-  its hilt; the scene shows 0.9 of the blade's length around the belt, and
+  its hilt; the scene shows 0.9 of the blade's length around the belt , and
   along the blade it moves 1.5 times as far as the pointer, so one drag
   covers the whole blade. The grinder is drawn from the side: the belt
   runs down a flat platen between two small wheels, back round the drive
@@ -134,6 +134,9 @@ It's a static page with no server.
 
 - `game.js`: the daily commission (seeded by the UTC date; the 12 blades
   come round in a shuffled cycle, once each every 12 days) and scoring.
+  A commission's looks (a pattern-welded
+  billet's pattern, a decoration) are drawn apart from its numbers, so
+  they can change without moving a day's game.
 - `blades.js`: the blade templates (width profile, tip, curve) and drawing
   an outline from section widths. `steels.js`: the steels' temperatures,
   quench and crack sensitivity. `glow.js`: steel's colour by temperature.
@@ -152,11 +155,19 @@ It's a static page with no server.
   `belt.js`: the path of the grinder's belt round its wheels.
 - `detail.js`: what's drawn on each blade for show, laid out in lanes
   across its outline: the ground bevels (the commission's on the card, the
-  player's own once it's been to the grinder), a fuller, ridge or grooves
-  to suit the kind of blade, and the katana's hamon and yokote once it's
-  hardened. They're drawn as light and shade, so they work over cold,
-  glowing and tempered steel alike; where the steel's colour is being
-  read (hardening, tempering) only the lines are drawn.
+  player's own once it's been to the grinder; the upper one lit, the lower
+  in shade), a fuller, ridge or grooves to suit the kind of blade, and the
+  katana's hamon and yokote once it's hardened. They're drawn as light and
+  shade, so they work over cold, glowing and tempered steel alike; where
+  the steel's colour is being read (hardening, tempering) only the lines
+  are drawn.
+  - A blade in 1084/15N20 damascus shows its billet's layers, in one of
+    four patterns drawn by the day: random, ladder, raindrop or twist.
+  - On 60% of its other days, a blade with a decoration carries it: the
+    Viking sword's +VLFBERH+T and the arming sword's +INNOMINEDOMINI+
+    inlaid in their fullers, runes along the seax's back, seven brass
+    stars down the jian, a gilt cartouche on the shamshir, a
+    bo-hi on the Japanese blades. The card names it.
 - `app.js` draws it and handles input.
 
 ## Running

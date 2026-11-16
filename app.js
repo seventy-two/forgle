@@ -1,6 +1,6 @@
 import { dayKey, pastKey, commission, forgeScore, barLength } from "./game.js";
-import { bladeById, bender, outline, outlinePath, polyPath } from "./blades.js";
-import { bladeDetail } from "./detail.js";
+import { bladeById, bender, outline, outlinePath } from "./blades.js";
+import { bladeDetail, detailPath, PATTERNS } from "./detail.js";
 import { steelById } from "./steels.js";
 import {
   FORGE_TIME, SWEET, SPAN, newBar, advance, setFire, strike, tempAt, markerAt, sectionLengths,
@@ -184,9 +184,13 @@ const sound = {
 // outline is drawn (see outlinePath).
 function detailGroup(shape, opts = {}, draw = {}) {
   const g = el("g", { class: "detail" });
-  for (const part of bladeDetail(BLADE, shape, opts)) g.append(el("path", { class: part.cls, d: polyPath(part.pts, part.closed, draw) }));
+  for (const part of bladeDetail(BLADE, shape, opts)) g.append(el("path", { class: part.cls, d: detailPath(part, draw) }));
   return g;
 }
+
+// GROOVE is the day's decoration when it's cut into the blade, so it shows
+// from the grinder on; the rest are inlaid once the blade's finished.
+const GROOVE = C.decor && C.decor.kind === "fuller" ? C.decor : null;
 
 // groundBevels is how high the blade's bevels are ground: the player's, or
 // the commission's on a blade that skipped the grinder for practice.
@@ -194,6 +198,7 @@ const groundBevels = () => (state.g ? state.g.lines : [C.bevel, C.bevel]);
 
 // swordSVG draws the sword as on the commission. bevels is how far it's
 // ground (left out before the grinder) and hamon whether it's hardened;
+// a ground blade shows its billet's pattern and the day's decoration too.
 // target adds the commission's outline and crack a crack.
 function swordSVG(svg, widths, lengths, { target, crack, bevels, hamon } = {}) {
   const shape = outline(BLADE, widths, lengths, { curve: C.curve, ref: Math.max(...C.widths) });
@@ -226,7 +231,7 @@ function swordSVG(svg, widths, lengths, { target, crack, bevels, hamon } = {}) {
   h.parts.filter((p) => !p.front).forEach(draw);
   svg.append(
     el("path", { class: "steel", d: outlinePath(shape) }),
-    detailGroup(shape, { bevels, hamon }),
+    detailGroup(shape, { bevels, hamon, pattern: bevels ? C.pattern : null, decor: bevels ? C.decor : GROOVE }),
     el("path", { class: "steel-line", d: outlinePath(shape) }),
   );
   h.parts.filter((p) => p.front).forEach(draw);
@@ -261,6 +266,8 @@ function renderBrief() {
     ["Width", `${cm(C.width)} cm at the guard<small>${cm(C.widths.at(-1))} cm where the point starts</small>`],
     ...(C.curve ? [["Curve", `${cm(Math.abs(C.curve))} cm at the point`]] : []),
     ["Steel", `${STEEL.name}<small>${STEEL.note}</small>`],
+    ...(C.pattern ? [["Pattern", `${PATTERNS[C.pattern.kind][0].toUpperCase()}${PATTERNS[C.pattern.kind].slice(1)}<small>how the billet's layers show once it's etched</small>`]] : []),
+    ...(C.decor ? [["Detail", `${C.decor.name[0].toUpperCase()}${C.decor.name.slice(1)}`]] : []),
     ["Hammer", `${swatch(STEEL.low)}not below ${colourName(STEEL.low)}<small>${swatch(STEEL.burn)}it burns at ${colourName(STEEL.burn)}</small>`],
     ["Hardness", `${C.hardness[0]}–${C.hardness[1]} HRC`],
   ];
@@ -718,7 +725,7 @@ function buildGrinder() {
   gscene.line = [el("path", { class: "line" }), el("path", { class: "line" })];
   const goal = el("path", { class: "goal" });
   const limit = el("path", { class: "limit" });
-  gscene.blade.append(defs, ...h.parts.filter((p) => !p.front).map(part), steel, detailGroup(shape, {}, { sy: gscene.sy, bend: BEND }), ...gscene.ground, limit, goal, ...gscene.line);
+  gscene.blade.append(defs, ...h.parts.filter((p) => !p.front).map(part), steel, detailGroup(shape, { decor: GROOVE }, { sy: gscene.sy, bend: BEND }), ...gscene.ground, limit, goal, ...gscene.line);
   gscene.blade.append(...h.parts.filter((p) => p.front).map(part));
   const each = (f) => linePath(f, 0) + (BLADE.edges === 2 ? linePath(f, 1) : "");
   goal.setAttribute("d", each(state.cols.map(() => C.bevel)));
@@ -1035,7 +1042,7 @@ function startHarden() {
   const svg = $("hbar");
   svg.setAttribute("viewBox", `${vb.x} ${vb.y} ${vb.w} ${vb.h}`);
   hscene.path = el("path", { class: "hot", d: outlinePath(shape, { bend: BEND }) + tangPath(shape) });
-  svg.replaceChildren(hscene.path, detailGroup(shape, { bevels: groundBevels() }, { bend: BEND }));
+  svg.replaceChildren(hscene.path, detailGroup(shape, { bevels: groundBevels(), decor: GROOVE }, { bend: BEND }));
   // The same blade, stood on its point, for the tank: true to life, curve
   // and all, with its tip on the line.
   const k = 205 / L;
@@ -1285,7 +1292,7 @@ function startTemper() {
     const j = Math.max(0, Math.min(STRIPS - 1, Math.floor(x * STRIPS)));
     return (cols[j].edge - cols[j].span) * sy;
   };
-  svg.replaceChildren(defs, el("path", { class: "tang", d: tangPath(shape, sy) }), strips, detailGroup(shape, { bevels: groundBevels() }, { sy, bend: BEND }), el("path", { class: "outline", d }), tscene.flame);
+  svg.replaceChildren(defs, el("path", { class: "tang", d: tangPath(shape, sy) }), strips, detailGroup(shape, { bevels: groundBevels(), decor: GROOVE }, { sy, bend: BEND }), el("path", { class: "outline", d }), tscene.flame);
 
   // The chart: each colour, and the hardness it leaves this blade's edge.
   const h0 = state.hardened.hrc;

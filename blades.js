@@ -13,6 +13,9 @@
 // (at, shares of its width from the top line) over a stretch of its body
 // (from and to, shares of its length short of the point), a ridge down the
 // middle over a stretch of it, grooves along lanes, a hamon, a yokote.
+// decor lists the decorations a commission may ask for on some days: an
+// inscription inlaid between two lanes (text is its glyphs, see detail.js),
+// seven inlaid stars, a gilt cartouche, or a second fuller.
 
 export const TIP_STYLES = {
   // len is the point's length as a multiple of the last section's width;
@@ -28,6 +31,9 @@ export const TIP_STYLES = {
   falcata: { len: 1.2, frac: 0.3, up: [0.5, 0.6], low: [0.6, 0] },
 };
 
+// A bo-hi: the groove some Japanese blades carry along the back.
+const BOHI = { kind: "fuller", name: "a bo-hi, a groove along the back", at: [0.05, 0.19], from: 0.02, to: 0.8 };
+
 export const BLADES = [
   {
     id: "gladius", name: "gladius", edges: 2, tip: "long", length: [480, 560], width: [50, 56], bevel: [0.55, 0.7], hardness: [55, 58],
@@ -39,6 +45,7 @@ export const BLADES = [
     id: "seax", name: "Viking seax", edges: 1, align: "edge", tip: "seax", length: [320, 450], width: [38, 46], bevel: [0.25, 0.35], hardness: [57, 60],
     profile: (x) => 0.88 + 0.22 * Math.min(x / 0.7, 1) - (x > 0.7 ? ((x - 0.7) / 0.3) * 0.35 : 0),
     detail: { grooves: { at: [0.13, 0.2], from: 0.04, to: 0.68 } },
+    decor: [{ kind: "inscription", name: "runes cut along the back", text: ["r:f", "r:u", "r:th", "r:o", "r:r", "r:k", "r:g", "r:w", "r:h", "r:n", "r:i", "r:t", "r:b", "r:m", "r:l"], in: [0.28, 0.5], from: 0.1 }],
     about: "A heavy single-edged blade whose spine breaks sharply down to the point.",
   },
   {
@@ -46,6 +53,7 @@ export const BLADES = [
     curve: { amount: [-20, -15], power: 2 }, steels: ["w2", "1095"],
     profile: (x) => 1 - 0.28 * x,
     detail: { hamon: true, yokote: true },
+    decor: [BOHI],
     about: "The samurai's curved sword, tapering gently to a short, strong kissaki.",
   },
   {
@@ -58,24 +66,28 @@ export const BLADES = [
     id: "shamshir", name: "shamshir", edges: 1, align: "spine", tip: "needle", length: [760, 840], width: [30, 35], bevel: [0.6, 0.7], hardness: [57, 60],
     curve: { amount: [-95, -70], power: 2.4 }, profile: (x) => 1 - 0.18 * x,
     detail: { fuller: { at: [0.08, 0.22], from: 0.03, to: 0.55 } },
+    decor: [{ kind: "cartouche", name: "a gilt cartouche by the guard", in: [0.3, 0.58], from: 0.05, long: 0.07 }],
     about: "A Persian sabre with a deep, sweeping curve and a needle point.",
   },
   {
     id: "arming", name: "arming sword", edges: 2, tip: "acute", length: [740, 800], width: [48, 52], bevel: [0.55, 0.75], hardness: [54, 57],
     profile: (x) => 1 - 0.42 * x,
     detail: { fuller: { at: [0.41, 0.59], from: 0, to: 0.6 } },
+    decor: [{ kind: "inscription", name: "+INNOMINEDOMINI+ inlaid in the fuller", gilt: true, text: [..."+INNOMINEDOMINI+"], in: [0.42, 0.58], from: 0.05 }],
     about: "The knight's one-handed sword: straight, double-edged and tapering to an acute point.",
   },
   {
     id: "viking", name: "Viking sword", edges: 2, tip: "rounded", length: [760, 840], width: [54, 60], bevel: [0.45, 0.6], hardness: [54, 57],
     profile: (x) => 1 - 0.22 * x,
     detail: { fuller: { at: [0.34, 0.66], from: 0, to: 0.85 } },
+    decor: [{ kind: "inscription", name: "+VLFBERH+T inlaid in the fuller", text: [..."+VLFBERH+T"], in: [0.39, 0.61], from: 0.07 }],
     about: "A broad, double-edged cutting sword with little taper and a rounded point.",
   },
   {
     id: "jian", name: "jian", edges: 2, tip: "acute", length: [650, 740], width: [34, 40], bevel: [0.5, 0.65], hardness: [56, 59],
     profile: (x) => 1 - 0.18 * x,
     detail: { ridge: [0, 1] },
+    decor: [{ kind: "stars", name: "seven brass stars down the blade" }],
     about: "The Chinese straight sword: slender, double-edged and quick.",
   },
   {
@@ -88,6 +100,7 @@ export const BLADES = [
     id: "longsword", name: "longsword", edges: 2, tip: "acute", length: [880, 980], width: [48, 54], bevel: [0.55, 0.75], hardness: [54, 57],
     profile: (x) => 1 - 0.5 * x,
     detail: { fuller: { at: [0.42, 0.58], from: 0, to: 0.36 }, ridge: [0.36, 1] },
+    decor: [{ kind: "inscription", name: "crosses and rings inlaid in the fuller", gilt: true, text: [..."+O+O+"], in: [0.43, 0.57], from: 0.06 }],
     about: "A two-handed sword with a strong taper for thrusting through gaps.",
   },
   {
@@ -185,12 +198,6 @@ export function outline(blade, widths, lengths, { ref = Math.max(...widths), cur
 export function bender(blade, curve, length) {
   const power = blade.curve ? blade.curve.power : 2;
   return (x) => (curve ? curve * Math.pow(Math.max(0, x) / length, power) : 0);
-}
-
-// polyPath turns points in an outline's coordinates into an SVG path, moved
-// and bent as outlinePath does its outline.
-export function polyPath(pts, closed, { sx = 1, sy = 1, dx = 0, dy = 0, bend = () => 0 } = {}) {
-  return `M${pts.map(([x, y]) => `${(x * sx + dx).toFixed(2)},${(y * sy + dy + bend(x)).toFixed(2)}`).join("L")}${closed ? "Z" : ""}`;
 }
 
 // outlinePath turns an outline into an SVG path, scaling x by sx and y by

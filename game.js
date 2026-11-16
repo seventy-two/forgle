@@ -2,6 +2,7 @@
 // the same in the browser and in tests.
 
 import { BLADES, bladeById, pointLength } from "./blades.js";
+import { PATTERNS } from "./detail.js";
 import { STEELS } from "./steels.js";
 import { sectionLengths } from "./forge.js";
 
@@ -9,6 +10,7 @@ export const SECTIONS = 8; // the blade is forged a section at a time
 export const BILLET_SCALE = 1.25; // the billet starts this much wider than the blade's widest section
 export const STOCK = [2.9, 4.5]; // mm: the range of the edge's thickness off the anvil
 export const FIRST_DAY = "2026-10-15"; // Forgle #1
+export const DECOR_DAYS = 0.6; // the share of a blade's days it's decorated, if it has a decoration
 // SEED salts the daily draws. It was "forgle" until a day in, when #1 was
 // redrawn (from a seax to a gladius) before launch.
 const SEED = "forgle5";
@@ -79,10 +81,11 @@ export function bladeForDay(key) {
 // commission builds a day's commission: the blade, its steel, its size and
 // shape (a target width for each section), the billet it's forged from, the
 // grind (bevel height, and the edge's thickness per section before it), how
-// the quench rocks it, and the hardness it must be tempered to.
-export function commission(key) {
+// the quench rocks it, and the hardness it must be tempered to; and how it
+// looks: a pattern-welded billet's pattern, or on some days a decoration
+// (see decor in blades.js). blade is the day's, unless one is asked for.
+export function commission(key, blade = bladeForDay(key)) {
   const rand = mulberry32(hash(SEED + ":" + key));
-  const blade = bladeForDay(key);
   const steels = blade.steels || STEELS.map((s) => s.id);
   const steel = steels[Math.floor(rand() * steels.length)];
   const length = round(between(rand, blade.length), 5);
@@ -105,9 +108,18 @@ export function commission(key) {
     sign: rand() < 0.5 ? -1 : 1,
   }));
 
+  // Its looks are drawn apart from the rest, so they can change without
+  // moving a day's numbers.
+  const look = mulberry32(hash(SEED + ":look:" + key));
+  const kinds = Object.keys(PATTERNS);
+  const pattern = steel === "damascus" ? { kind: kinds[Math.floor(look() * kinds.length)], seed: hash(SEED + ":pattern:" + key) } : null;
+  const decor = !pattern && blade.decor && look() < DECOR_DAYS ? blade.decor[Math.floor(look() * blade.decor.length)] : null;
+
   return {
     key,
     number: dayNumber(key),
+    pattern,
+    decor,
     blade: blade.id,
     steel,
     length,
