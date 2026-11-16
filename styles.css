@@ -288,6 +288,31 @@ dialog .primary { width: 100%; }
 .practise button:first-of-type { margin-left: 6px; }
 .practise button:hover { border-color: var(--ember); }
 
+/* How thick the edge under the belt is: thick on the left, nothing on the right. */
+.edge-gauge { margin: 10px 0 0; }
+.edge-gauge p {
+  display: flex; justify-content: space-between; margin: 0 0 4px;
+  color: var(--muted); font-size: 0.66rem; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; font-variant-numeric: tabular-nums;
+}
+.edge-gauge p span:last-child { color: var(--ink); letter-spacing: 0.04em; text-transform: none; font-size: 0.75rem; }
+.meter.edge { height: 18px; margin: 0; }
+.meter.edge > div { position: absolute; top: 0; bottom: 0; }
+.meter.edge .right { left: var(--ok0); width: calc(var(--ok1) - var(--ok0)); background: color-mix(in srgb, var(--good) 38%, transparent); }
+.meter.edge .over { left: var(--ok1); width: calc(var(--thin) - var(--ok1)); background: color-mix(in srgb, var(--ok) 45%, transparent); }
+.meter.edge .thin { left: var(--thin); right: 0; background: color-mix(in srgb, var(--bad) 45%, transparent); }
+.meter.edge .band { top: 2px; bottom: 2px; min-width: 4px; margin-left: -2px; border-radius: 1px; background: var(--ink); }
+.meter.edge .band.ok { background: var(--good); }
+.meter.edge .band.over { background: var(--ok); }
+.meter.edge .band.thin { background: var(--bad); }
+/* How hard the edge is pushed into the belt. */
+.pressure {
+  position: absolute; left: 10px; top: 50%; width: 7px; height: 36%; transform: translateY(-50%);
+  border: 1px solid rgba(233, 226, 216, 0.35); border-radius: 2px; pointer-events: none;
+}
+.pressure i { position: absolute; left: 0; right: 0; bottom: 0; height: calc(var(--p, 0) * 100%); background: #ffb27a; }
+/* On a one-edged sword there's nothing to turn over: the button takes the row. */
+#flip[hidden] + .primary { grid-column: 1 / -1; }
+
 /* Tempering */
 .scene.torch { padding: 30px 10px 26px; touch-action: none; cursor: crosshair; user-select: none; -webkit-user-select: none; }
 .torch .tang { fill: #6f7378; stroke: rgba(0, 0, 0, 0.45); stroke-width: 1; vector-effect: non-scaling-stroke; }

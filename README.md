@@ -44,31 +44,35 @@ with an even 1 mm edge.
 
 - The forged blade goes to a belt grinder that stays put on the right of
   the scene; the player holds the sword upright, point up, and drags it
-  around: up and down to run it along the belt, right to push the edge in
+  around: up and down to run it along the belt, right to lean the edge in
   (or ↑ ↓ ← →). The sword is drawn as on the commission, true to life with
   its hilt; the scene shows 0.9 of the blade's length around the belt, and
   along the blade it moves 1.5 times as far as the pointer, so one drag
-  covers the whole blade. The belt is
-  12% of the blade's length wide.
-- Wherever the edge is pushed onto the belt, the bevel there climbs, at up
-  to 1.2 of the span a second, with the square of how far it's pushed in
-  (a light touch grinds slowly). Letting go lifts the blade clear.
-  It's a slack belt: it gives by up to 40% of the blade's widest span, so
-  nearby parts of a curved edge touch too, more lightly; the blade can't be
-  pushed in further.
-- The edge thins as the bevel climbs, from its thickness off the anvil
-  (2.9–4.5 mm, varying along the blade each day) to 1 mm as the bevel
-  reaches the day's line, and on past it. Both faces are ground alike.
-  The ground bevel is coloured strip by strip for its edge: pale while
-  over 1.4 mm, green to 0.6, amber to 0.4, red below (it may crack), and a
-  red dotted line marks the height where it gets there.
-- Double-edged blades are turned over (F) to grind the other edge.
+  covers the whole blade. The belt is 16% of the blade's length wide.
+- The sword is rocked (up to 40°) so the stretch of edge over the belt
+  sits flat on it: every strip under the belt is pressed alike, and the
+  belt's centre can run 5% of the blade's length past the guard and 6.5%
+  past the point, so the point grinds like the rest.
+- Pressure is how far the pointer pushes on past the belt's face: 72 px
+  for all of it on any sword, shown by a bar. Letting go lifts the blade
+  clear.
+- The belt takes the same thickness off every edge: 3.5 mm a second at
+  full pressure, with the square of the pressure (a light touch grinds
+  slowly). The edge comes off the anvil 2.9–4.5 mm thick, varying along
+  the blade each day, so thick stretches take longer. The bevel climbs as
+  the edge thins, reaching the day's line at 1 mm. Both faces are ground
+  alike.
 - Past the line the bevel climbs at 30% of the speed, so there's time to
-  stop once it turns green. The belt is 16% of the blade's length wide.
-- 75 seconds. 60% for the lines, weighted by the blade's width so the
-  point counts little (18% of the span off on average loses it all), and
-  40% for the edge (1 mm ± 0.4). Strips under
-  0.4 mm are kept for the quench.
+  stop once it turns green.
+- The ground bevel is coloured strip by strip for its edge: pale while
+  over 1.4 mm, green to 0.6, amber to 0.4, red below (it may crack), and a
+  red dotted line marks the height where it gets there. A gauge under the
+  scene shows the same for the edge on the belt, thickest to thinnest.
+- Double-edged blades are turned over (F) to grind the other edge.
+- 60 seconds, or 100 for two edges. 60% for the lines, weighted by the
+  blade's width so the point counts little (18% of the span off on average
+  loses it all), and 40% for the edge (1 mm ± 0.4). Strips under 0.4 mm
+  are kept for the quench.
 
 ## Harden
 

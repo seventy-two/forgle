@@ -1,25 +1,32 @@
-// The grind stage's rules: a belt grinder that stays put, and a blade the
-// player moves around it. Wherever the edge is pushed onto the belt, the
-// bevel there climbs, faster the harder it's pushed; the edge thins with
-// it, reaching 1 mm as the bevel reaches the commission's line.
-// Double-edged blades are turned over to grind the other edge. Everything
-// is pure and comes from event times: the time between two events is
-// sampled on a fixed grid of absolute times, so it doesn't matter how often
-// the page asks.
+// The grind stage's rules: a belt grinder that stays put, and a sword the
+// player runs along it and leans into it. The sword is rocked so the edge
+// over the belt sits flat on it: every strip under the belt is pressed
+// alike, and the belt can run off either end of the blade, so the point
+// can be reached. The belt takes the same thickness off every edge a
+// second, faster the harder it's leant in, so a thick stretch of edge
+// takes longer; the bevel climbs as the edge thins, reaching the
+// commission's line at 1 mm. Double-edged blades are turned over to grind
+// the other edge. Everything is pure and comes from event times: the time
+// between two events is sampled on a fixed grid of absolute times, so it
+// doesn't matter how often the page asks.
 
 import { outline } from "./blades.js";
 
-export const GRIND_TIME = 75; // seconds on the clock
 export const COLUMNS = 40; // the blade is ground in this many strips, tang to point
 export const BELT = 0.16; // how much of the blade's length the belt is wide
-export const GIVE = 0.4; // how far the belt gives, as a share of the blade's widest span
-export const RATE = 1.2; // share of the span the bevel climbs a second, pushed all the way in
-export const PAST = 0.3; // past the commission's line it climbs this much slower, so there's time to stop
+export const X0 = -0.05; // how far past the guard the belt's centre can go, as a share of the blade's length
+export const X1 = 1.065; // and how far past the point
+export const MM = 3.5; // mm a second the belt takes off an edge's thickness at full pressure, until it reaches the line
+export const POWER = 2; // it falls with the pressure to this power: a light touch grinds slowly
+export const PAST = 0.3; // past the commission's line the bevel climbs this much slower, so there's time to stop
 export const EDGE = 1.0; // mm: the edge to leave before the quench
 export const EDGE_OK = 0.4; // mm either side of it that's fine
 export const THIN = 0.4; // mm: thinner than this and the edge may crack in the quench
 export const FLIP_TIME = 0.6; // seconds to turn the blade over
 export const DT = 0.005; // the sampling grid, in seconds
+
+// grindTime is the seconds on the clock for a blade with that many edges.
+export const grindTime = (edges) => (edges === 2 ? 100 : 60);
 
 const clamp01 = (x) => Math.max(0, Math.min(1, x));
 
@@ -77,42 +84,30 @@ export function edgeDown(c, e) {
 // x along the blade (a share of its length).
 export const underBelt = (c, x) => Math.abs(c.x - x) <= BELT / 2;
 
-// give is how far (mm) the edge can be pushed into the belt: it's a slack
-// belt, so it gives, and nearby parts of a curved edge touch too, lighter.
-export function give(cols) {
-  return GIVE * Math.max(...cols.map((c) => c.span));
-}
-
-// lowest is how low the down edge reaches over the belt at x, or null if
-// none of the blade is over it. The belt's top can't be more than give
-// above it.
-export function lowest(g, cols, x) {
-  let y = null;
-  for (const c of cols) if (underBelt(c, x)) y = Math.max(y ?? -Infinity, edgeDown(c, g.down));
-  return y;
+// rates is how fast each strip's bevel climbs at full pressure, as a share
+// of its span a second, to a line at bevel: MM over the thickness the
+// strip's edge has to lose on the way.
+export function rates(cols, bevel) {
+  return cols.map((c) => (MM * bevel) / (c.stock - EDGE));
 }
 
 // grind runs the grinder from the hold's time (at) to t1, with the belt's
-// centre x along the blade (a share of its length) and its top at y (mm,
-// in the down edge's frame), and returns the new state. Every strip over
-// the belt whose edge is pushed past its top climbs at RATE times how far
-// it's pushed in (out of give), squared: a light touch grinds slowly, for
-// easing up to the line. Past the line it slows to PAST of that, so an
-// edge going green can be lifted off before it's ground too far.
+// centre at hold.x along the blade (a share of its length) and the edge
+// pressed on it at hold.p (0 to 1), and returns the new state. Past the
+// line the bevel slows to PAST of its speed, so an edge going green can be
+// lifted off before it's ground too far.
 export function grind(g, cols, hold, t1) {
   const from = Math.max(hold.at, g.flippedAt + FLIP_TIME);
-  if (t1 <= from) return g;
-  const pen0 = give(cols);
+  if (t1 <= from || hold.p <= 0) return g;
+  const rate = rates(cols, g.bevel);
+  const push = Math.min(1, hold.p) ** POWER * DT;
   const line = [...g.lines[g.down]];
   let changed = false;
   for (let k = Math.floor(from / DT) + 1; k * DT <= t1; k++) {
     for (let j = 0; j < COLUMNS; j++) {
-      const c = cols[j];
-      if (!underBelt(c, hold.x)) continue;
-      const pen = Math.min(pen0, edgeDown(c, g.down) - hold.y);
-      if (pen <= 0) continue;
+      if (!underBelt(cols[j], hold.x)) continue;
       const slow = line[j] >= g.bevel ? PAST : 1;
-      line[j] = Math.min(1, line[j] + slow * RATE * (pen / pen0) ** 2 * DT);
+      line[j] = Math.min(1, line[j] + slow * push * rate[j]);
       changed = true;
     }
   }

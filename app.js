@@ -8,7 +8,7 @@ import { glowCSS, glowStrength, colourName } from "./glow.js";
 import { hilt } from "./hilts.js";
 import { crackLines } from "./crack.js";
 import {
-  GRIND_TIME, COLUMNS, BELT, FLIP_TIME, geometry, give, newGrind, perfectGrind, edgeDown, lowest, edgeLeft, thickness, heightFor, edgeState, THIN, grind, flip, grindScore,
+  COLUMNS, BELT, X0, X1, FLIP_TIME, EDGE, EDGE_OK, THIN, grindTime, geometry, newGrind, perfectGrind, edgeDown, underBelt, edgeLeft, thickness, heightFor, edgeState, grind, flip, grindScore,
 } from "./grind.js";
 import {
   HARDEN_TIME, TRANSFER, CRACK, KEY_STEER, DRAG_STEER, QUENCHES, htTemp, htSetFire, magnetSticks, quenchTemp,
@@ -24,6 +24,7 @@ const KEY = PAST || dayKey();
 addEventListener("hashchange", () => location.reload());
 const C = commission(KEY);
 const BLADE = bladeById[C.blade];
+const GRIND_TIME = grindTime(BLADE.edges);
 // BEND is how far the commission's blade curves at x mm from the guard.
 // The stages draw the blade taller than life but bend it true to life, so
 // it keeps the shape it has on the commission.
@@ -88,7 +89,7 @@ const state = {
   forgeScore: null,
   g: null, // the grind
   cols: null, // the forged blade's strips, for the grind
-  press: null, // the blade on the grinder: where the belt is along it and how high (see grind.js), and any drag
+  press: null, // the blade on the grinder: where the belt is along it, how far its edge is from the belt and how hard it's pressed (see grind.js), and any drag
   grindScore: null,
   heat: null, // the harden stage's heat
   plunge: null, // the quench, once it's in
@@ -580,9 +581,14 @@ function frame(now) {
 
 // The scene's origin is the middle of the belt's working face; the scene
 // is drawn upside down, so the face is the bottom of a belt hanging from
-// the top. The blade is drawn
-// in its own coordinates (mm along, y times sy) and moved over the belt.
+// the top. The blade is drawn in its own coordinates (mm along, y times
+// sy) and moved over the belt, rocked so the edge over the belt lies
+// along it. press.gap is how far the edge is held from the belt's face
+// (mm); pushing on past the face is pressure, FULL_PX of the pointer's
+// travel on screen for all of it, whatever the sword's size.
 const gscene = { sy: 1, L: 1, tall: 1 };
+const FULL_PX = 72;
+const MAX_TILT = 40; // degrees the sword can be rocked
 
 function startGrind() {
   state.phase = "grind";
@@ -592,14 +598,25 @@ function startGrind() {
   $("grind").hidden = false;
   setStage("grind");
   buildGrinder();
-  // Held over the middle of the belt, a little above it.
-  state.press = { x: 0.5, y: maxEdge() + Math.min(0.35 * gscene.tall, gscene.away) / gscene.sy, at: 0, vx: 0, vy: 0, drag: null, touching: false };
+  // Held over the middle of the belt, a little away from it.
+  state.press = { x: 0.5, gap: clearGap(), p: 0, at: 0, vx: 0, vy: 0, drag: null, touching: false };
   drawGrind();
   say("Drag the blade to the belt", "", 2500);
 }
 
-// maxEdge is how low the down edge reaches anywhere along the blade.
-const maxEdge = () => Math.max(...state.cols.map((c) => edgeDown(c, state.g.down)));
+// clearGap is where the sword is held to start and to turn it over, and
+// liftGap where letting go leaves it.
+const clearGap = () => Math.min(0.35 * gscene.tall, gscene.away);
+const liftGap = () => 0.08 * gscene.tall;
+
+// edgeAt is where the down edge is at x along the blade (a share of its
+// length, from the guard at 0 to the very point at 1).
+function edgeAt(x) {
+  const f = Math.max(0, Math.min(1, x)) * COLUMNS - 0.5;
+  const j = Math.max(0, Math.min(COLUMNS - 2, Math.floor(f)));
+  const a = edgeDown(state.cols[j], state.g.down), b = edgeDown(state.cols[j + 1], state.g.down);
+  return a + (b - a) * (f - j);
+}
 
 function buildGrinder() {
   const svg = $("gbar");
@@ -627,6 +644,15 @@ function buildGrinder() {
   svg.setAttribute("viewBox", `${-0.65 * W} ${-H / 2} ${W} ${H}`);
   // How far from the belt the edge can be held, leaving the sword in view.
   gscene.away = Math.max(0.3 * T, 0.65 * W - 1.8 * tall);
+  // Full pressure's push in the scene's mm, how far the edge sinks into
+  // the belt at it, and the edge gauge's scale and zones.
+  gscene.full = box.width > 0 ? (FULL_PX * W) / box.width : 0.1 * L;
+  gscene.sink = 0.12 * Math.max(...state.cols.map((c) => c.span));
+  gscene.top = Math.max(...C.stock) + 0.4;
+  const pc = (t) => `${100 * (1 - t / gscene.top)}%`;
+  $("gmeter").style.setProperty("--ok0", pc(EDGE + EDGE_OK));
+  $("gmeter").style.setProperty("--ok1", pc(EDGE - EDGE_OK));
+  $("gmeter").style.setProperty("--thin", pc(THIN));
 
   // The grinder: a belt round a wheel, in front of the blade so an edge
   // pushed in sinks into it.
@@ -718,9 +744,38 @@ function drawGrind() {
       gscene.stops[e][j].setAttribute("stop-color", EDGE_COLOURS[edgeState(thickness(state.cols[j], h, C.bevel))]);
     });
   }
-  // Turned over, the blade is mirrored about y = 0 (see edgeDown).
+  // The edge under the belt's centre is held at its face (or the point,
+  // once the belt has run off the end), rocked so the stretch of edge over
+  // the belt lies along it. Turned over, the blade is mirrored about
+  // y = 0 (see edgeDown).
+  const xc = Math.max(0, Math.min(1, p.x));
+  const a = Math.max(0, p.x - BELT / 2), b = Math.min(1, p.x + BELT / 2);
+  const slope = b - a > 1e-6 ? (edgeAt(b) - edgeAt(a)) / ((b - a) * gscene.L) : 0;
+  const tilt = Math.max(-MAX_TILT, Math.min(MAX_TILT, (Math.atan(slope) * 180) / Math.PI));
+  const off = p.gap > 0 ? p.gap : -p.p * gscene.sink;
   const flipT = g.down ? " scale(1 -1)" : "";
-  gscene.blade.setAttribute("transform", `translate(${-p.x * gscene.L} ${-p.y * gscene.sy})${flipT}`);
+  gscene.blade.setAttribute("transform", `translate(${((xc - p.x) * gscene.L).toFixed(2)} ${(-off).toFixed(2)}) rotate(${(-tilt).toFixed(2)}) translate(${(-xc * gscene.L).toFixed(2)} ${(-edgeAt(xc)).toFixed(2)})${flipT}`);
+  drawGauges();
+}
+
+// drawGauges shows how thick the edge under the belt is, thickest to
+// thinnest, and how hard it's being pushed.
+function drawGauges() {
+  const p = state.press;
+  let thick = -Infinity, thin = Infinity;
+  state.cols.forEach((c, j) => {
+    if (!underBelt(c, p.x)) return;
+    const t = thickness(c, state.g.lines[state.g.down][j], C.bevel);
+    thick = Math.max(thick, t);
+    thin = Math.min(thin, t);
+  });
+  const at = (t) => 100 * (1 - Math.max(0, Math.min(gscene.top, t)) / gscene.top);
+  const band = $("gband");
+  band.style.left = `${at(thick)}%`;
+  band.style.width = `${Math.max(0, at(thin) - at(thick))}%`;
+  band.className = `band ${edgeState(thin)}`;
+  $("gedge").textContent = thick - thin < 0.15 ? `${thin.toFixed(1)} mm` : `${thin.toFixed(1)}–${thick.toFixed(1)} mm`;
+  $("gpress").style.setProperty("--p", p.p.toFixed(3));
 }
 
 // scenePoint turns a pointer event's position into the scene's coordinates.
@@ -730,16 +785,14 @@ function scenePoint(e) {
   return new DOMPoint(e.clientX, e.clientY).matrixTransform(ctm.inverse());
 }
 
-// moveBlade puts the blade at x along the belt (a share of its length) with
-// the belt's top at y in its frame, pushed into the belt at most as far as
-// it gives, and
-// within the scene.
-function moveBlade(x, y) {
+// moveBlade puts the belt at x along the blade (a share of its length) and
+// the edge gap mm from its face: less than nothing is pushed into it, as
+// far as full pressure.
+function moveBlade(x, gap) {
   const p = state.press;
-  p.x = Math.max(0, Math.min(1, x));
-  const low = lowest(state.g, state.cols, p.x);
-  const top = maxEdge() + gscene.away / gscene.sy;
-  p.y = Math.min(top, low === null ? y : Math.max(low - give(state.cols), y));
+  p.x = Math.max(X0, Math.min(X1, x));
+  p.gap = Math.max(-gscene.full, Math.min(gscene.away, gap));
+  p.p = Math.max(0, -p.gap / gscene.full);
 }
 
 const ALONG = 1.5;
@@ -752,18 +805,17 @@ function grabAt(e, phase) {
   const p = state.press;
   const pt = scenePoint(e);
   if (!pt) return;
-  if (phase === "down") p.drag = { px: pt.x, py: pt.y, x: p.x, y: p.y };
+  if (phase === "down") p.drag = { px: pt.x, py: pt.y, x: p.x, gap: p.gap };
   else if (phase === "up") {
     // Letting go lifts the blade clear of the belt.
     p.drag = null;
-    const low = lowest(state.g, state.cols, p.x);
-    if (low !== null) moveBlade(p.x, Math.max(p.y, low + (0.08 * gscene.tall) / gscene.sy));
+    moveBlade(p.x, Math.max(p.gap, liftGap()));
   }
   // The world is turned upright: down the screen is along the blade to the
   // point's side of the belt, right is into the belt. Along the blade it
   // moves faster than the pointer, so two thirds of the scene's height
   // covers the whole blade.
-  else if (p.drag) moveBlade(p.drag.x + (ALONG * (pt.y - p.drag.py)) / gscene.H, p.drag.y - (pt.x - p.drag.px) / gscene.sy);
+  else if (p.drag) moveBlade(p.drag.x + (ALONG * (pt.y - p.drag.py)) / gscene.H, p.drag.gap - (pt.x - p.drag.px));
   $("gscene").classList.toggle("holding", Boolean(p.drag));
 }
 
@@ -777,9 +829,10 @@ function flushGrind(t) {
 }
 
 // The keys move the blade: ↑ ↓ along at KEY_X lengths a second, ← →
-// away from and into the belt at KEY_Y of its height a second.
+// away from and into the belt, KEY_Y seconds from its face to full
+// pressure.
 const KEY_X = 0.5;
-const KEY_Y = 0.6;
+const KEY_Y = 0.7;
 
 function steerBlade(vx, vy) {
   if (state.phase !== "grind") return;
@@ -794,7 +847,7 @@ function doFlip(stamp) {
   state.g = flip(state.g, t);
   // Lift it clear to turn it over.
   state.press.drag = null;
-  moveBlade(state.press.x, maxEdge() + Math.min(0.35 * gscene.tall, gscene.away) / gscene.sy);
+  moveBlade(state.press.x, clearGap());
   const sc = $("gscene");
   sc.classList.add("flipping");
   setTimeout(() => sc.classList.remove("flipping"), FLIP_TIME * 1000);
@@ -810,7 +863,7 @@ function grindFrame(now) {
   const p = state.press;
   const dt = Math.max(0, t - p.at);
   flushGrind(t);
-  if (p.vx || p.vy) moveBlade(p.x + p.vx * dt, p.y + (p.vy * dt * gscene.tall) / gscene.sy);
+  if (p.vx || p.vy) moveBlade(p.x + p.vx * dt, p.gap + (p.vy * dt * gscene.full) / KEY_Y);
   const left = GRIND_TIME - t;
   $("gclock").textContent = Math.ceil(left);
   $("gtrack").style.transform = `scaleX(${left / GRIND_TIME})`;
@@ -818,9 +871,7 @@ function grindFrame(now) {
   drawGrind();
 
   // Sparks off the belt, more the harder the edge is pushed in.
-  const low = lowest(state.g, state.cols, p.x);
-  const most = give(state.cols);
-  const pen = low === null || t < state.g.flippedAt + FLIP_TIME ? 0 : Math.min(most, low - p.y);
+  const pen = t < state.g.flippedAt + FLIP_TIME ? 0 : p.p;
   const touching = pen > 0;
   if (touching !== p.touching) {
     p.touching = touching;
@@ -834,7 +885,7 @@ function grindFrame(now) {
     const px = svg.left - sc.left + ((0 - vb.x) / vb.width) * svg.width;
     const py = svg.top - sc.top + ((0 - vb.y) / vb.height) * svg.height;
     const box = $("gsparks");
-    for (let k = 0; k < Math.ceil((4 * pen) / most); k++) {
+    for (let k = 0; k < Math.ceil(4 * pen); k++) {
       const s = document.createElement("i");
       s.className = "spark";
       const a = Math.PI * (Math.random() < 0.5 ? 0.05 + Math.random() * 0.25 : 0.7 + Math.random() * 0.25);
@@ -1438,8 +1489,8 @@ function setup() {
   addEventListener("keyup", (e) => {
     if (state.phase === "grind") {
       const k = e.key.toLowerCase();
-      if (["arrowleft", "arrowright", "a", "d"].includes(k)) steerBlade(0, null);
-      if (["arrowup", "arrowdown", "w", "s"].includes(k)) steerBlade(null, 0);
+      if (["arrowleft", "arrowright", "a", "d"].includes(k)) steerBlade(null, 0);
+      if (["arrowup", "arrowdown", "w", "s"].includes(k)) steerBlade(0, null);
     }
     if (state.phase === "temper" && e.key === " ") torchAt({ timeStamp: e.timeStamp, keyboard: true }, false);
     if (state.phase === "plunge" && (e.key === "ArrowLeft" || e.key === "ArrowRight")) {
@@ -1474,8 +1525,8 @@ function setup() {
       if (k === "f") doFlip(e.timeStamp);
       else if (k === "arrowup" || k === "w") steerBlade(-KEY_X, null);
       else if (k === "arrowdown" || k === "s") steerBlade(KEY_X, null);
-      else if (k === "arrowright" || k === "d") steerBlade(null, -KEY_Y);
-      else if (k === "arrowleft" || k === "a") steerBlade(null, KEY_Y);
+      else if (k === "arrowright" || k === "d") steerBlade(null, -1);
+      else if (k === "arrowleft" || k === "a") steerBlade(null, 1);
       else return;
       e.preventDefault();
       return;
